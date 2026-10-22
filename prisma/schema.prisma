@@ -87,42 +87,99 @@ enum ReturnStatus {
 }
 
 model User {
-  id         String        @id @default(cuid())
-  fullName   String
-  email      String?       @unique
-  phone      String?       @unique
-  role       UserRole      @default(CUSTOMER)
-  status     AccountStatus @default(ACTIVE)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  fullName      String
+  email         String?       @unique
+  emailVerified Boolean       @default(false)
+  image         String?
+  phone         String?       @unique
+  role          UserRole      @default(CUSTOMER)
+  status        AccountStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  addresses     Address[]
-  shops         Shop[]
-  carts         Cart[]
-  orders        Order[]
-  wishlist      Wishlist?
-  reviews       Review[]
-  notifications Notification[]
+  addresses       Address[]
+  sessions        Session[]
+  accounts        Account[]
+  shops           Shop[]
+  carts           Cart[]
+  orders          Order[]
+  wishlist        Wishlist?
+  reviews         Review[]
+  notifications   Notification[]
   supportMessages SupportMessage[]
 
   @@index([role, status])
 }
 
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
 model Address {
-  id          String   @id @default(cuid())
-  userId      String
-  label       String?
-  recipient   String
-  phone       String
-  province    String?
-  district    String?
-  sector      String?
-  cell        String?
-  village     String?
-  directions  String?
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String
+  label      String?
+  recipient  String
+  phone      String
+  province   String?
+  district   String?
+  sector     String?
+  cell       String?
+  village    String?
+  directions String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders Order[]
@@ -131,38 +188,38 @@ model Address {
 }
 
 model Shop {
-  id          String     @id @default(cuid())
-  ownerId     String?
-  name        String
-  slug        String     @unique
-  description String?
-  logoUrl     String?
-  bannerUrl   String?
-  email       String?
-  phone       String?
-  whatsappNumbers String[] @default([])
-  address     String?
-  socialLinks Json       @default("{}")
-  paymentMethods PaymentMethod[] @default([])
-  status      ShopStatus @default(PENDING)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id              String          @id @default(cuid())
+  ownerId         String?
+  name            String
+  slug            String          @unique
+  description     String?
+  logoUrl         String?
+  bannerUrl       String?
+  email           String?
+  phone           String?
+  whatsappNumbers String[]        @default([])
+  address         String?
+  socialLinks     Json            @default("{}")
+  paymentMethods  PaymentMethod[] @default([])
+  status          ShopStatus      @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  owner      User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  products   Product[]
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  products     Product[]
   fulfillments SellerOrder[]
 
   @@index([ownerId, status])
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  parentId  String?
-  name      String
-  slug      String   @unique
-  translations Json  @default("{}")
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  parentId     String?
+  name         String
+  slug         String   @unique
+  translations Json     @default("{}")
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
 
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Category[] @relation("CategoryTree")
@@ -172,25 +229,25 @@ model Category {
 }
 
 model Product {
-  id          String        @id @default(cuid())
-  shopId      String
-  categoryId  String?
-  name        String
-  slug        String        @unique
-  description String
+  id           String        @id @default(cuid())
+  shopId       String
+  categoryId   String?
+  name         String
+  slug         String        @unique
+  description  String
   translations Json          @default("{}")
-  status      ProductStatus @default(DRAFT)
-  isFeatured  Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  status       ProductStatus @default(DRAFT)
+  isFeatured   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  shop        Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
-  category    Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  images      ProductImage[]
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
+  shop          Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  category      Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  images        ProductImage[]
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
   wishlistItems WishlistItem[]
-  reviews     Review[]
+  reviews       Review[]
 
   @@index([status, createdAt])
   @@index([categoryId, status])
@@ -207,29 +264,29 @@ model ProductImage {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@index([productId, sortOrder])
   @@unique([productId, url])
+  @@index([productId, sortOrder])
 }
 
 // Every purchasable SKU is a variant, including products with no visible options.
 model ProductVariant {
-  id                    String   @id @default(cuid())
-  productId             String
-  label                 String   @default("Default")
-  sku                   String?  @unique
-  options               Json
-  currency              String   @default("USD")
-  priceAmount           Int
-  isPricePlaceholder    Boolean  @default(false)
-  compareAtPriceAmount  Int?
-  stockQuantity         Int?
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  productId            String
+  label                String   @default("Default")
+  sku                  String?  @unique
+  options              Json
+  currency             String   @default("USD")
+  priceAmount          Int
+  isPricePlaceholder   Boolean  @default(false)
+  compareAtPriceAmount Int?
+  stockQuantity        Int?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems         CartItem[]
-  orderItems        OrderItem[]
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
   inventoryMovements InventoryMovement[]
 
   @@unique([productId, label])
@@ -297,23 +354,23 @@ model WishlistItem {
 }
 
 model Order {
-  id                       String      @id @default(cuid())
-  orderNumber              String      @unique
-  userId                   String
-  addressId                String?
-  status                   OrderStatus @default(PENDING)
-  currency                 String      @default("USD")
-  subtotalAmount           Int
-  deliveryFeeAmount        Int         @default(0)
-  discountAmount           Int         @default(0)
-  totalAmount              Int
-  deliveryAddressSnapshot  Json
-  customerNote             String?
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  id                      String      @id @default(cuid())
+  orderNumber             String      @unique
+  userId                  String
+  addressId               String?
+  status                  OrderStatus @default(PENDING)
+  currency                String      @default("USD")
+  subtotalAmount          Int
+  deliveryFeeAmount       Int         @default(0)
+  discountAmount          Int         @default(0)
+  totalAmount             Int
+  deliveryAddressSnapshot Json
+  customerNote            String?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  address      Address?      @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  address      Address?        @relation(fields: [addressId], references: [id], onDelete: SetNull)
   fulfillments SellerOrder[]
   payments     Payment[]
   returns      ReturnRequest[]
@@ -323,14 +380,14 @@ model Order {
 }
 
 model SellerOrder {
-  id                 String            @id @default(cuid())
-  orderId            String
-  shopId             String
-  status             SellerOrderStatus @default(NEW)
-  subtotalAmount     Int
-  deliveryFeeAmount  Int               @default(0)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  id                String            @id @default(cuid())
+  orderId           String
+  shopId            String
+  status            SellerOrderStatus @default(NEW)
+  subtotalAmount    Int
+  deliveryFeeAmount Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   shop      Shop        @relation(fields: [shopId], references: [id], onDelete: Restrict)
@@ -364,17 +421,17 @@ model OrderItem {
 }
 
 model Payment {
-  id                    String        @id @default(cuid())
-  orderId               String
-  method                PaymentMethod
-  status                PaymentStatus @default(PENDING)
-  amount                Int
-  provider              String?
-  providerReference     String?       @unique
-  idempotencyKey        String?       @unique
-  paidAt                DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  orderId           String
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Int
+  provider          String?
+  providerReference String?       @unique
+  idempotencyKey    String?       @unique
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   refunds Refund[]
@@ -431,10 +488,10 @@ model ReturnRequest {
 
 model ReturnItem {
   id              String @id @default(cuid())
-  returnRequestId  String
-  orderItemId      String
-  quantity         Int
-  refundAmount     Int?
+  returnRequestId String
+  orderItemId     String
+  quantity        Int
+  refundAmount    Int?
 
   returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
   orderItem     OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
@@ -443,15 +500,15 @@ model ReturnItem {
 }
 
 model Review {
-  id                 String   @id @default(cuid())
-  userId             String
-  productId          String
-  rating             Int
-  comment            String?
-  verifiedPurchase   Boolean  @default(false)
-  isPublished        Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String
+  productId        String
+  rating           Int
+  comment          String?
+  verifiedPurchase Boolean  @default(false)
+  isPublished      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -461,12 +518,12 @@ model Review {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   title     String
   body      String
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -489,3 +546,4 @@ model SupportMessage {
 
   @@index([status, createdAt])
 }
+

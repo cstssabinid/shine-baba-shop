@@ -20,10 +20,12 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "^1.7.12",
     "@next/env": "^16.0.0",
     "@prisma/adapter-neon": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@vercel/blob": "^2.8.0",
+    "better-auth": "^1.7.12",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -42,3 +44,4 @@
     "seed": "tsx prisma/seed.ts"
   }
 }
+

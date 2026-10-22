@@ -1,8 +1,10 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type SubmittedLine = { slug: string; option?: string; quantity: number };
@@ -42,6 +44,9 @@ export async function submitOrder(formData: FormData) {
   const idempotencyKey = String(formData.get("requestKey") ?? "");
   if (!lines || name.length < 2 || !/^\+?[0-9]{7,18}$/.test(phone) || !district || !sector || !directions || !Object.hasOwn(paymentMethods, paymentMethodKey) || !/^[0-9a-f-]{36}$/i.test(idempotencyKey)) redirect("/checkout?error=details");
 
+  const session = await auth.api.getSession({ headers: await headers() });
+  const registeredCustomerId = session?.user.id;
+
   try {
     const orderNumber = await prisma.$transaction(async (tx) => {
       const previous = await tx.payment.findUnique({ where: { idempotencyKey }, select: { order: { select: { orderNumber: true } } } });
@@ -64,8 +69,12 @@ export async function submitOrder(formData: FormData) {
         if (claimed.count !== 1) throw new Error("OUT_OF_STOCK");
       }
 
-      const customer = await tx.user.upsert({ where: { phone }, update: {}, create: { fullName: name, phone, role: "CUSTOMER" } });
-      const address = await tx.address.create({ data: { userId: customer.id, recipient: name, phone, district, sector, directions } });
+      const customer = registeredCustomerId
+        ? await tx.user.findFirst({ where: { id: registeredCustomerId, role: "CUSTOMER", status: "ACTIVE" } })
+        : await tx.user.upsert({ where: { phone }, update: {}, create: { fullName: name, phone, role: "CUSTOMER" } });
+      if (!customer) throw new Error("CUSTOMER_INACTIVE");
+      const hasSavedAddress = await tx.address.findFirst({ where: { userId: customer.id }, select: { id: true } });
+      const address = await tx.address.create({ data: { userId: customer.id, recipient: name, phone, district, sector, directions, isDefault: !hasSavedAddress } });
       const orderNumber = `SBS-${Date.now().toString(36).toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}`;
       const order = await tx.order.create({ data: {
         orderNumber,
@@ -108,6 +117,8 @@ export async function submitOrder(formData: FormData) {
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;
     if (error instanceof Error && error.message === "OUT_OF_STOCK") redirect("/checkout?error=stock");
+    if (error instanceof Error && error.message === "CUSTOMER_INACTIVE") redirect("/account?error=unavailable");
     redirect("/checkout?error=failed");
   }
 }
+
