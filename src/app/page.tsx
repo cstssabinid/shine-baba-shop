@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { categories, products } from "@/lib/catalog";
+import { useCart } from "@/components/cart-provider";
 import { formatUsd } from "@/lib/format";
 import { ProductCard } from "@/components/product-card";
 import { ProductArt } from "@/components/product-art";
@@ -19,8 +19,9 @@ const highlights = [
 
 export default function HomePage() {
   const { locale, t } = usePreferences();
+  const { products, categories } = useCart();
   const featured = products.slice(0, 4);
-  const heroProduct = localizeProduct(products[0], locale);
+  const heroProduct = products[0] ? localizeProduct(products[0], locale) : null;
 
   return (
     <main>
@@ -56,8 +57,8 @@ export default function HomePage() {
               <span>Find your<br /><strong>new favorite</strong></span>
             </div>
             <div className="hero-float-card hero-float-bottom">
-              <span className="hero-mini-art"><ProductArt product={products[0]} compact /></span>
-              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><b>{formatUsd(heroProduct.price)}</b></span>
+              {heroProduct && <><span className="hero-mini-art"><ProductArt product={products[0]} compact /></span>
+              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><b>{formatUsd(heroProduct.price)}</b></span></>}
             </div>
             <span className="hero-sunburst">✳</span>
           </div>
@@ -103,7 +104,7 @@ export default function HomePage() {
           <div className="product-grid">
             {featured.map((product) => <ProductCard key={product.slug} product={product} />)}
           </div>
-          <div className="sample-disclaimer">{t("These photos show the shop's current products. Prices are random placeholders.")}</div>
+          <div className="sample-disclaimer">{t("Stock is shown from the live catalog. Prices remain random placeholders until the shop confirms them.")}</div>
         </div>
       </section>
 

@@ -10,6 +10,15 @@ export type Product = {
   color: string;
   emoji: string;
   image: string;
+  stockQuantity?: number | null;
+  hasUncountedStock?: boolean;
+  variants?: {
+    id: string;
+    label: string;
+    price: number;
+    stockQuantity: number | null;
+    isPricePlaceholder: boolean;
+  }[];
   options?: {
     label: string;
     values: string[];

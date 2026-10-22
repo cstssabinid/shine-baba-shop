@@ -51,7 +51,7 @@ export function ShopsContent() {
 
 export function ProductsContent({ initialQuery, initialCategory }: { initialQuery: string; initialCategory: string }) {
   const { t } = usePreferences();
-  return <main className="page-main"><section className="page-hero"><div className="container"><p className="eyebrow">{t("The Shine Baba Shop edit")}</p><h1>{t("Find something ")}<em>{t("lovely.")}</em></h1><p>{t("Browse products shown in Shine Baba Shop's current stock photos.")}</p></div></section><section className="section catalog-section"><div className="container"><ProductBrowser initialQuery={initialQuery} initialCategory={initialCategory} /><p className="catalog-footnote">{t("Photos show the supplied current stock. Prices are random USD placeholders; stock counts were not provided.")}</p></div></section></main>;
+  return <main className="page-main"><section className="page-hero"><div className="container"><p className="eyebrow">{t("The Shine Baba Shop edit")}</p><h1>{t("Find something ")}<em>{t("lovely.")}</em></h1><p>{t("Browse the live catalog from Shine Baba Shop in Kigali.")}</p></div></section><section className="section catalog-section"><div className="container"><ProductBrowser initialQuery={initialQuery} initialCategory={initialCategory} /><p className="catalog-footnote">{t("Stock counts update from the shop inventory. Prices are random USD placeholders until confirmed by the shop.")}</p></div></section></main>;
 }
 
 export function ProductDetailContent({ product: sourceProduct, related }: { product: Product; related: Product[] }) {

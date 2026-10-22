@@ -16,3 +16,4 @@ src/generated/prisma/
 
 .vercel
 .env*
+!.env.example

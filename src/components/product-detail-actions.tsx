@@ -12,10 +12,16 @@ export function ProductDetailActions({ product, canonicalOptionValues }: { produ
   const { addItem } = useCart();
   const { t } = usePreferences();
   const router = useRouter();
+  const selectedLabel = canonicalOptionValues?.[selectedIndex] ?? product.options?.values[selectedIndex] ?? "Default";
+  const selectedVariant = product.variants?.find((item) => item.label === selectedLabel) ?? product.variants?.[0];
 
   function add(continueToCheckout = false) {
     const selectedOption = product.options?.values[selectedIndex] ?? "";
-    addItem(product.slug, selectedOption ? canonicalOptionValues?.[selectedIndex] ?? selectedOption : undefined);
+    const option = selectedOption ? canonicalOptionValues?.[selectedIndex] ?? selectedOption : undefined;
+    if (!addItem(product.slug, option)) {
+      setNotice(t("Stock is not set or this item is out of stock"));
+      return;
+    }
     setNotice(t("Added to your bag"));
     if (continueToCheckout) router.push("/checkout");
     window.setTimeout(() => setNotice(""), 2200);
@@ -41,6 +47,7 @@ export function ProductDetailActions({ product, canonicalOptionValues }: { produ
           </div>
         </fieldset>
       )}
+      <p className="product-stock-note">{!selectedVariant || selectedVariant.stockQuantity === null ? t("Stock not set") : selectedVariant.stockQuantity > 0 ? `${selectedVariant.stockQuantity} ${t("available")}` : t("Out of stock")}</p>
       <div className="detail-buttons">
         <button className="button button-dark detail-add" type="button" onClick={() => add(false)}>{t("Add to bag")}</button>
         <button className="button button-orange" type="button" onClick={() => add(true)}>{t("Buy now")} <span>↗</span></button>

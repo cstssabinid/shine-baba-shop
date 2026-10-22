@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { categories, products } from "@/lib/catalog";
 import { ProductGrid } from "@/components/product-grid";
+import { useCart } from "@/components/cart-provider";
 import { usePreferences } from "@/components/preferences-provider";
 import { localizeCategory, localizeProduct } from "@/lib/i18n";
 
@@ -17,6 +17,7 @@ export function ProductBrowser({
   const [category, setCategory] = useState(initialCategory);
   const [sort, setSort] = useState("recommended");
   const { locale, t } = usePreferences();
+  const { products, categories } = useCart();
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

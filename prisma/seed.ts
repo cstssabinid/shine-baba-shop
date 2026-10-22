@@ -62,7 +62,7 @@ async function seed() {
 
   await prisma.shop.upsert({
     where: { slug: shopData.slug },
-    update: shopData,
+    update: {},
     create: shopData,
   });
 
@@ -70,11 +70,7 @@ async function seed() {
     const slug = categorySlug(category.name);
     await prisma.category.upsert({
       where: { slug },
-      update: {
-        name: category.name,
-        sortOrder,
-        translations: categoryTranslations[category.name] ?? {},
-      },
+      update: {},
       create: {
         name: category.name,
         slug,
@@ -89,13 +85,7 @@ async function seed() {
     const translations = productTranslations(product.slug);
     const storedProduct = await prisma.product.upsert({
       where: { slug: product.slug },
-      update: {
-        name: product.name,
-        description: product.description,
-        translations,
-        shop: { connect: { slug: shopData.slug } },
-        category: { connect: { slug: productCategorySlug } },
-      },
+      update: {},
       create: {
         name: product.name,
         slug: product.slug,
@@ -111,7 +101,7 @@ async function seed() {
       where: {
         productId_url: { productId: storedProduct.id, url: product.image },
       },
-      update: { altText: product.name, sortOrder: 0 },
+      update: {},
       create: {
         productId: storedProduct.id,
         url: product.image,
@@ -130,8 +120,8 @@ async function seed() {
         where: {
           productId_label: { productId: storedProduct.id, label: choice },
         },
-        // Preserve stock, price, and activation edits made in the database.
-        update: { options },
+        // Seed only missing variants so manager edits remain intact on later deployments.
+        update: {},
         create: {
           productId: storedProduct.id,
           label: choice,

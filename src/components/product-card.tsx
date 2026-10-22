@@ -25,8 +25,9 @@ export function ProductCard({ product }: { product: Product }) {
           <strong>{formatUsd(item.price)}</strong>
           {item.options
             ? <Link href={"/products/" + item.slug} className="button button-outline button-small">{t("Choose")}</Link>
-            : <AddToCartButton slug={item.slug} label={t("Add")} className="button-small" />}
+            : <AddToCartButton slug={item.slug} label={t("Add")} className="button-small" disabled={!product.variants?.[0] || product.variants[0].stockQuantity === null || product.variants[0].stockQuantity < 1} />}
         </div>
+        <p className="product-stock-note">{product.stockQuantity == null ? t(product.hasUncountedStock ? "Some variant stock is not counted" : "Stock not set") : product.stockQuantity < 1 ? t("Out of stock") : `${product.stockQuantity} ${t("available")}`}</p>
       </div>
     </article>
   );

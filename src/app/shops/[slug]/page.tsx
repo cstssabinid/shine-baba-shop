@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { products } from "@/lib/catalog";
+import { getPublicCatalog } from "@/lib/catalog-data";
 import { ShopDetailContent } from "@/components/page-content";
-
-export function generateStaticParams() {
-  return [{ slug: "shine-baba-shop" }];
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -15,5 +11,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ShopDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (slug !== "shine-baba-shop") notFound();
+  const { products } = await getPublicCatalog();
   return <ShopDetailContent products={products} />;
 }

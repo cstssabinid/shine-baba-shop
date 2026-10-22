@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node node_modules/next/dist/bin/next dev --webpack",
-    "build": "prisma generate && next build",
+    "build": "prisma migrate deploy && prisma generate && prisma db seed && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint .",
@@ -23,6 +23,7 @@
     "@next/env": "^16.0.0",
     "@prisma/adapter-neon": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@vercel/blob": "^2.8.0",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

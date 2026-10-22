@@ -9,7 +9,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { products } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog";
+import type { CatalogCategory } from "@/lib/catalog-data";
 
 export type CartLine = {
   slug: string;
@@ -18,11 +19,13 @@ export type CartLine = {
 };
 
 type CartContextValue = {
+  products: Product[];
+  categories: CatalogCategory[];
   items: CartLine[];
   itemCount: number;
   subtotal: number;
   ready: boolean;
-  addItem: (slug: string, option?: string) => void;
+  addItem: (slug: string, option?: string) => boolean;
   setQuantity: (slug: string, option: string | undefined, quantity: number) => void;
   removeItem: (slug: string, option?: string) => void;
   clearCart: () => void;
@@ -33,28 +36,53 @@ const storageKey = "shine-baba-shop-cart-v1";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved) as CartLine[];
-        if (Array.isArray(parsed)) {
-          setItems(parsed.filter((line) =>
-            typeof line.slug === "string" &&
-            (line.option === undefined || typeof line.option === "string") &&
-            Number.isInteger(line.quantity) &&
-            line.quantity > 0 &&
-            products.some((product) => product.slug === line.slug),
-          ));
+    let mounted = true;
+    const refreshCatalog = async () => {
+      try {
+        const response = await fetch("/api/catalog", { cache: "no-store" });
+        if (!response.ok) return;
+        const catalog = await response.json() as { products?: Product[]; categories?: CatalogCategory[] };
+        if (mounted) {
+          setProducts(Array.isArray(catalog.products) ? catalog.products : []);
+          setCategories(Array.isArray(catalog.categories) ? catalog.categories : []);
         }
+      } catch {
+        // Keep the last known catalog. Order submission checks stock on the server.
       }
-    } catch {
-      setItems([]);
-    } finally {
-      setReady(true);
-    }
+    };
+    const load = async () => {
+      await refreshCatalog();
+      try {
+        const saved = window.localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved) as CartLine[];
+          if (mounted && Array.isArray(parsed)) {
+            setItems(parsed.filter((line) => typeof line.slug === "string" && (line.option === undefined || typeof line.option === "string") && Number.isInteger(line.quantity) && line.quantity > 0));
+          }
+        }
+      } catch {
+        if (mounted) setItems([]);
+      } finally {
+        if (mounted) setReady(true);
+      }
+    };
+    void load();
+    const refreshInterval = window.setInterval(() => { void refreshCatalog(); }, 30_000);
+    const onFocus = () => { void refreshCatalog(); };
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") void refreshCatalog(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      mounted = false;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -67,6 +95,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, ready]);
 
   const addItem = useCallback((slug: string, option?: string) => {
+    const product = products.find((entry) => entry.slug === slug);
+    const variant = product?.variants?.find((entry) => entry.label === (option ?? "Default")) ?? product?.variants?.[0];
+    if (!product || !variant || variant.stockQuantity === null) return false;
+    const quantityInCart = items.find((item) => item.slug === slug && item.option === option)?.quantity ?? 0;
+    if (quantityInCart >= variant.stockQuantity) return false;
     setItems((current) => {
       const existing = current.find((item) => item.slug === slug && item.option === option);
       if (existing) {
@@ -78,7 +111,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...current, { slug, option, quantity: 1 }];
     });
-  }, []);
+    return true;
+  }, [items, products]);
 
   const setQuantity = useCallback((slug: string, option: string | undefined, quantity: number) => {
     const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity) || 1));
@@ -99,11 +133,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     const subtotal = items.reduce((sum, item) => {
       const product = products.find((entry) => entry.slug === item.slug);
-      return sum + (product?.price ?? 0) * item.quantity;
+      const variant = product?.variants?.find((entry) => entry.label === (item.option ?? "Default")) ?? product?.variants?.[0];
+      return sum + (variant?.price ?? product?.price ?? 0) * item.quantity;
     }, 0);
 
-    return { items, itemCount, subtotal, ready, addItem, setQuantity, removeItem, clearCart };
-  }, [items, ready, addItem, setQuantity, removeItem, clearCart]);
+    return { items, products, categories, itemCount, subtotal, ready, addItem, setQuantity, removeItem, clearCart };
+  }, [items, products, categories, ready, addItem, setQuantity, removeItem, clearCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

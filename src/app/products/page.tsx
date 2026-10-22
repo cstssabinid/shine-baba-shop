@@ -3,7 +3,7 @@ import { ProductsContent } from "@/components/page-content";
 
 export const metadata: Metadata = {
   title: "Shop all",
-  description: "Explore the Shine Baba Shop sample catalog from Kigali, Rwanda.",
+  description: "Explore the live Shine Baba Shop catalog from Kigali, Rwanda.",
 };
 
 export default async function ProductsPage({

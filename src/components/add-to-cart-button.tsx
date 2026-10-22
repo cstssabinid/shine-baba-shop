@@ -9,24 +9,26 @@ export function AddToCartButton({
   label = "Add to bag",
   className = "",
   option,
+  disabled = false,
 }: {
   slug: string;
   label?: string;
   className?: string;
   option?: string;
+  disabled?: boolean;
 }) {
   const { addItem } = useCart();
   const { t } = usePreferences();
   const [added, setAdded] = useState(false);
 
   function handleAdd() {
-    addItem(slug, option);
+    if (!addItem(slug, option)) return;
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1800);
   }
 
   return (
-    <button className={"button button-dark " + className} type="button" onClick={handleAdd}>
+    <button className={"button button-dark " + className} type="button" onClick={handleAdd} disabled={disabled}>
       {added ? t("Added to your bag ✓") : label}
     </button>
   );
