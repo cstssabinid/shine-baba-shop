@@ -41,8 +41,7 @@ export function SiteFooter() {
           <p className="footer-title">{t("We’re here to help")}</p>
           <a href="mailto:juwizeye97@gmail.com"><Icon name="mail" size={16} /> juwizeye97@gmail.com</a>
           <a href="tel:+250790384123"><Icon name="phone" size={16} /> +250 790 384 123</a>
-          <a href="https://wa.me/250722398228" target="_blank" rel="noreferrer">WhatsApp 0722 398 228</a>
-          <a href="https://wa.me/250788872559" target="_blank" rel="noreferrer">WhatsApp 0788 872 559</a>
+          <a href="https://wa.me/250790384123" target="_blank" rel="noreferrer">WhatsApp +250 790 384 123</a>
         </div>
         <div className="footer-column">
           <p className="footer-title">{t("Visit us")}</p>

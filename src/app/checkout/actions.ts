@@ -9,6 +9,19 @@ import { prisma } from "@/lib/prisma";
 
 type SubmittedLine = { slug: string; option?: string; quantity: number };
 const paymentMethods = { mtn: "MTN_MOBILE_MONEY", airtel: "AIRTEL_MONEY", visa: "VISA", mastercard: "MASTERCARD" } as const;
+const paymentMethodLabels = {
+  MTN_MOBILE_MONEY: "MTN Mobile Money",
+  AIRTEL_MONEY: "Airtel Money",
+  VISA: "Visa",
+  MASTERCARD: "Mastercard",
+} as const;
+const shopWhatsAppNumber = "250790384123";
+type OrderDetails = {
+  orderNumber: string;
+  subtotalAmount: number;
+  paymentMethod: keyof typeof paymentMethodLabels;
+  items: { productName: string; option: string; quantity: number; lineTotalAmount: number }[];
+};
 
 function parseCart(value: FormDataEntryValue | null): SubmittedLine[] | null {
   if (typeof value !== "string" || value.length > 12000) return null;
@@ -33,6 +46,14 @@ function parseCart(value: FormDataEntryValue | null): SubmittedLine[] | null {
 }
 
 export async function submitOrder(formData: FormData) {
+  await createOrder(formData, "website");
+}
+
+export async function submitOrderViaWhatsApp(formData: FormData) {
+  await createOrder(formData, "whatsapp");
+}
+
+async function createOrder(formData: FormData, channel: "website" | "whatsapp") {
   const lines = parseCart(formData.get("cart"));
   const name = String(formData.get("name") ?? "").trim().slice(0, 120);
   const rawPhone = String(formData.get("phone") ?? "").trim();
@@ -47,12 +68,35 @@ export async function submitOrder(formData: FormData) {
   const session = await auth.api.getSession({ headers: await headers() });
   const registeredCustomerId = session?.user.id;
 
+  let orderDetails: OrderDetails;
   try {
-    const orderNumber = await prisma.$transaction(async (tx) => {
-      const previous = await tx.payment.findUnique({ where: { idempotencyKey }, select: { order: { select: { orderNumber: true } } } });
-      if (previous) return previous.order.orderNumber;
+    orderDetails = await prisma.$transaction(async (tx) => {
+      const previous = await tx.payment.findUnique({
+        where: { idempotencyKey },
+        select: {
+          method: true,
+          order: {
+            select: {
+              orderNumber: true,
+              subtotalAmount: true,
+              fulfillments: { select: { items: { select: { productNameSnapshot: true, quantity: true, lineTotalAmount: true, variant: { select: { label: true } } } } } },
+            },
+          },
+        },
+      });
+      if (previous) return {
+        orderNumber: previous.order.orderNumber,
+        subtotalAmount: previous.order.subtotalAmount,
+        paymentMethod: previous.method,
+        items: previous.order.fulfillments.flatMap((fulfillment) => fulfillment.items.map((item) => ({
+          productName: item.productNameSnapshot,
+          option: item.variant.label === "Default" ? "" : item.variant.label,
+          quantity: item.quantity,
+          lineTotalAmount: item.lineTotalAmount,
+        }))),
+      };
 
-      const resolved = [] as { variantId: string; productId: string; productName: string; sku: string | null; price: number; quantity: number; options: Record<string, string>; shopId: string }[];
+      const resolved = [] as { variantId: string; productId: string; productName: string; variantLabel: string; sku: string | null; price: number; quantity: number; options: Record<string, string>; shopId: string }[];
       for (const line of lines) {
         const variant = await tx.productVariant.findFirst({
           where: { label: line.option ?? "Default", isActive: true, product: { slug: line.slug, status: "ACTIVE" } },
@@ -60,7 +104,7 @@ export async function submitOrder(formData: FormData) {
         });
         if (!variant || variant.stockQuantity === null || variant.stockQuantity < line.quantity) throw new Error("OUT_OF_STOCK");
         const options = variant.options && typeof variant.options === "object" && !Array.isArray(variant.options) ? variant.options as Record<string, string> : {};
-        resolved.push({ variantId: variant.id, productId: variant.product.id, productName: variant.product.name, sku: variant.sku, price: variant.priceAmount, quantity: line.quantity, options, shopId: variant.product.shopId });
+        resolved.push({ variantId: variant.id, productId: variant.product.id, productName: variant.product.name, variantLabel: variant.label, sku: variant.sku, price: variant.priceAmount, quantity: line.quantity, options, shopId: variant.product.shopId });
       }
 
       const subtotal = resolved.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -85,6 +129,7 @@ export async function submitOrder(formData: FormData) {
         subtotalAmount: subtotal,
         totalAmount: subtotal,
         deliveryAddressSnapshot: { recipient: name, phone, district, sector, directions },
+        customerNote: channel === "whatsapp" ? "Customer requested order confirmation via WhatsApp." : null,
       } });
 
       const shopTotals = new Map<string, number>();
@@ -106,19 +151,49 @@ export async function submitOrder(formData: FormData) {
 
       for (const item of resolved) await tx.inventoryMovement.create({ data: { variantId: item.variantId, delta: -item.quantity, reason: "Customer order stock reservation", reference: orderNumber } });
       await tx.payment.create({ data: { orderId: order.id, method: paymentMethods[paymentMethodKey as keyof typeof paymentMethods], status: "PENDING", amount: subtotal, provider: "Manual confirmation required", idempotencyKey } });
-      return orderNumber;
+      return {
+        orderNumber,
+        subtotalAmount: subtotal,
+        paymentMethod: paymentMethods[paymentMethodKey as keyof typeof paymentMethods],
+        items: resolved.map((item) => ({
+          productName: item.productName,
+          option: item.variantLabel === "Default" ? "" : item.variantLabel,
+          quantity: item.quantity,
+          lineTotalAmount: item.price * item.quantity,
+        })),
+      };
     });
-
-    revalidatePath("/api/catalog");
-    revalidatePath("/products");
-    revalidatePath("/");
-    revalidatePath("/admin");
-    redirect(`/checkout/success?order=${encodeURIComponent(orderNumber)}`);
   } catch (error) {
-    if (error && typeof error === "object" && "digest" in error) throw error;
     if (error instanceof Error && error.message === "OUT_OF_STOCK") redirect("/checkout?error=stock");
     if (error instanceof Error && error.message === "CUSTOMER_INACTIVE") redirect("/account?error=unavailable");
     redirect("/checkout?error=failed");
   }
+
+  revalidatePath("/api/catalog");
+  revalidatePath("/products");
+  revalidatePath("/");
+  revalidatePath("/admin");
+  if (channel === "whatsapp") {
+    const itemLines = orderDetails.items.map((item) => {
+      const option = item.option ? ` (${item.option})` : "";
+      return `â€¢ ${item.productName}${option} Ã— ${item.quantity} â€” $${(item.lineTotalAmount / 100).toFixed(2)}`;
+    });
+    const message = [
+      "Hello Shine Baba Shop, I placed an order request.",
+      `Order: ${orderDetails.orderNumber}`,
+      "",
+      ...itemLines,
+      "",
+      `Estimated subtotal: $${(orderDetails.subtotalAmount / 100).toFixed(2)} USD`,
+      `Customer: ${name}`,
+      `Phone: ${phone}`,
+      `Delivery area: ${sector}, ${district}`,
+      `Directions: ${directions}`,
+      `Preferred payment: ${paymentMethodLabels[orderDetails.paymentMethod]}`,
+      "Please confirm the final price, delivery fee, and payment instructions.",
+    ].join("\n");
+    redirect(`https://wa.me/${shopWhatsAppNumber}?text=${encodeURIComponent(message)}`);
+  }
+  redirect(`/checkout/success?order=${encodeURIComponent(orderDetails.orderNumber)}`);
 }
 

@@ -44,7 +44,7 @@ async function seed() {
     logoUrl: "/brand/shine-baba-shop-icon.png",
     email: "juwizeye97@gmail.com",
     phone: "+250 790 384 123",
-    whatsappNumbers: ["0722398228", "0788872559"],
+    whatsappNumbers: ["+250790384123"],
     address: "KN 20 Ave, Kigali City, Rwanda",
     socialLinks: {
       tiktok: "https://www.tiktok.com/@shine_baba_shob",
@@ -62,7 +62,7 @@ async function seed() {
 
   await prisma.shop.upsert({
     where: { slug: shopData.slug },
-    update: {},
+    update: { phone: shopData.phone, whatsappNumbers: shopData.whatsappNumbers },
     create: shopData,
   });
 

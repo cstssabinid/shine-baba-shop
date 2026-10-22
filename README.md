@@ -14,7 +14,7 @@ An independent online storefront for Shine Baba Shop in Kigali, Rwanda. The stor
 - Store location: KN 20 Ave, Kigali City, Rwanda
 - Email: juwizeye97@gmail.com
 - Phone: +250 790 384 123
-- WhatsApp: 0722398228 and 0788872559
+- WhatsApp: +250 790 384 123
 - Social handle: shine_baba_shob on TikTok, Instagram, and Facebook
 - Planned payment methods: MTN Mobile Money, Airtel Money, Visa credit/debit, and Mastercard
 

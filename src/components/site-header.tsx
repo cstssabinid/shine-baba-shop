@@ -86,7 +86,7 @@ export function SiteHeader() {
         <div className="container"><span className="preview-dot" /> {t("Current products pictured; placeholder prices are shown.")}</div>
       </div>
       <MobileBottomNav />
-      <a className="mobile-help-tab" href="https://wa.me/250722398228" target="_blank" rel="noreferrer" aria-label={t("Chat with our team on WhatsApp")}>
+      <a className="mobile-help-tab" href="https://wa.me/250790384123" target="_blank" rel="noreferrer" aria-label={t("Chat with our team on WhatsApp")}>
         <span className="mobile-help-icon"><Icon name="whatsapp" size={19} /></span><span>{t("Help")}</span>
       </a>
     </>

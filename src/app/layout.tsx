@@ -4,6 +4,7 @@ import { CartProvider } from "@/components/cart-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { PreferencesProvider } from "@/components/preferences-provider";
+import { ShopIntroAnimation } from "@/components/shop-intro-animation";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <ShopIntroAnimation />
         <PreferencesProvider>
           <CartProvider>
             <SiteHeader />
@@ -47,3 +49,4 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     </html>
   );
 }
+

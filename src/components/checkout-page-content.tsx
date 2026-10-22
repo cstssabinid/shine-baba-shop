@@ -6,7 +6,7 @@ import { useCart } from "@/components/cart-provider";
 import { usePreferences } from "@/components/preferences-provider";
 import { formatUsd } from "@/lib/format";
 import { localizeOption, localizeProduct } from "@/lib/i18n";
-import { submitOrder } from "@/app/checkout/actions";
+import { submitOrder, submitOrderViaWhatsApp } from "@/app/checkout/actions";
 
 export type CheckoutDefaults = {
   fullName: string;
@@ -84,8 +84,15 @@ export function CheckoutPageContent({ profile }: { profile: CheckoutDefaults }) 
             </div>
           </div>
           {error && <div className="manager-alert error" role="alert">{error}</div>}
-          <div className="checkout-preview-banner"><strong>{t("Order request only")}</strong><span>{t("This saves your order request and reserves counted stock. It does not collect payment. The shop will confirm the final price, delivery fee, and payment before dispatch.")}</span></div>
-          <button className="button button-dark button-full checkout-submit" type="submit" disabled={!canOrder || !requestKey}>{canOrder ? t("Send order request") : t("Stock must be counted before ordering")}</button>
+          <div className="checkout-preview-banner"><strong>{t("Choose how to send your order")}</strong><span>{t("Whichever option you choose, your order is saved and counted stock is reserved. WhatsApp opens a ready-to-send message. No payment is collected online; the shop confirms delivery and payment with you.")}</span></div>
+          <div className="checkout-order-options">
+            <button className="button button-whatsapp button-full checkout-submit" type="submit" formAction={submitOrderViaWhatsApp} disabled={!canOrder || !requestKey}>
+              {canOrder ? t("Send order via WhatsApp") : t("Stock must be counted before ordering")} <span aria-hidden="true">â†—</span>
+            </button>
+            <button className="button button-dark button-full checkout-submit" type="submit" formAction={submitOrder} disabled={!canOrder || !requestKey}>
+              {canOrder ? t("Place order on this website") : t("Stock must be counted before ordering")}
+            </button>
+          </div>
         </form>
         <aside className="cart-summary checkout-summary">
           <p className="eyebrow">{t("Your selection")}</p><h2>{t("In your bag")}</h2>

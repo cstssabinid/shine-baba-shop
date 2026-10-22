@@ -136,7 +136,7 @@ export default function HomePage() {
             <p>{t("Tell us what you have in mind. Our team is happy to help.")}</p>
           </div>
           <div className="contact-strip-actions">
-            <a className="button button-orange" href="https://wa.me/250722398228" target="_blank" rel="noreferrer">{t("Chat on WhatsApp")} <span>↗</span></a>
+            <a className="button button-orange" href="https://wa.me/250790384123" target="_blank" rel="noreferrer">{t("Chat on WhatsApp")} <span>↗</span></a>
             <a className="contact-strip-phone" href="tel:+250790384123">+250 790 384 123</a>
           </div>
           <span className="contact-strip-flower">✳</span>

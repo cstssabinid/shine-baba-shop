@@ -1148,3 +1148,88 @@ h1 em, h2 em { color: var(--orange); font-weight: 500; }
   .mobile-hero-copy-text > p:not(.mobile-hero-kicker) { color: rgba(255, 255, 255, .96); }
 }
 
+
+
+.checkout-order-options { display: grid; gap: 10px; }
+.button-whatsapp { color: white; background: #168a68; }
+.button-whatsapp:hover { background: #117455; }
+
+/* Opening mark: the cart and bag assemble into the shop's existing logo. */
+.shop-intro {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--paper);
+  pointer-events: none;
+  animation: intro-curtain 460ms ease 2.46s forwards;
+}
+.shop-intro-content {
+  position: relative;
+  display: grid;
+  width: min(380px, 88vw);
+  justify-items: center;
+  text-align: center;
+}
+.shop-intro-scene { width: 100%; height: auto; overflow: visible; }
+.intro-orbit { stroke: #e9ded5; stroke-width: 1; opacity: 0; transform-origin: center; animation: intro-orbit 1.4s ease 1.05s both; }
+.intro-orbit-two { animation-delay: 1.18s; }
+.intro-bag { transform-box: view-box; transform-origin: center; animation: intro-bag-arrive 880ms cubic-bezier(.2,.75,.25,1) 180ms both; }
+.intro-bag-shine { opacity: 0; animation: intro-shine 480ms ease 1.2s both; }
+.intro-cart { transform-box: view-box; transform-origin: center; animation: intro-cart-journey 1.92s cubic-bezier(.18,.72,.3,1) 40ms both; }
+.intro-cart > path, .intro-cart > circle { animation: intro-cart-light 1.92s ease 40ms both; }
+.intro-cart > path:nth-child(2), .intro-cart > path:nth-child(3), .intro-cart > circle { animation-name: intro-cart-light, intro-cart-fill; }
+.intro-sparkle { fill: none; stroke: var(--orange); stroke-width: 2; stroke-linecap: round; opacity: 0; animation: intro-sparkle-pop 520ms ease 1.5s both; }
+.intro-sparkle-right { animation-delay: 1.72s; }
+.shop-intro-logo { position: absolute; top: 19%; width: min(164px, 42vw); height: auto; opacity: 0; object-fit: contain; animation: intro-logo-reveal 540ms cubic-bezier(.2,.8,.2,1) 1.88s both; }
+.shop-intro-name { margin: -5px 0 0; color: var(--ink); font-family: var(--serif); font-size: 25px; letter-spacing: -.04em; opacity: 0; animation: intro-wordmark 420ms ease 2.02s both; }
+.shop-intro-tagline { margin: 5px 0 0; color: var(--muted); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; opacity: 0; animation: intro-wordmark 420ms ease 2.12s both; }
+
+@keyframes intro-bag-arrive {
+  from { transform: translateX(240px) rotate(8deg); }
+  72% { transform: translateX(-58px) rotate(-2deg); }
+  to { transform: translateX(-50px) rotate(0); }
+}
+@keyframes intro-cart-journey {
+  0% { transform: translateX(-250px) scale(1); }
+  53% { transform: translateX(22px) scale(.96); }
+  76%, 100% { transform: translateX(30px) scale(.58); }
+}
+@keyframes intro-cart-light {
+  0%, 50% { stroke: var(--ink); }
+  77%, 100% { stroke: #fff8f0; }
+}
+@keyframes intro-cart-fill {
+  0%, 50% { fill: #f7a17e; }
+  77%, 100% { fill: #fff8f0; }
+}
+@keyframes intro-orbit {
+  from { opacity: 0; transform: scale(.72) rotate(-20deg); }
+  to { opacity: .9; transform: scale(1) rotate(0); }
+}
+@keyframes intro-shine {
+  from { opacity: 0; transform: scale(.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes intro-sparkle-pop {
+  0% { opacity: 0; transform: scale(.45) rotate(-45deg); }
+  55% { opacity: 1; transform: scale(1.15) rotate(10deg); }
+  100% { opacity: .7; transform: scale(1) rotate(0); }
+}
+@keyframes intro-logo-reveal {
+  from { opacity: 0; transform: scale(.68) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes intro-wordmark {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes intro-curtain {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-intro, .shop-intro * { animation-duration: 1ms !important; animation-delay: 0ms !important; }
+}
