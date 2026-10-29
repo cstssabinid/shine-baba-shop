@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { formatUsd } from "@/lib/format";
 import { hasManagerSession, isManagerLoginConfigured } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
-import { managerLogin, managerLogout } from "@/app/admin/auth-actions";
+import { managerLogout } from "@/app/admin/auth-actions";
 import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, saveProduct, updateOrderStatus } from "@/app/admin/actions";
 import { AdminImageUpload } from "@/components/admin-image-upload";
+import { AdminManagerLogin } from "@/components/admin-manager-login";
+import { getManagerPhoneHint } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +22,8 @@ const messages: Record<string, string> = {
 };
 
 const errors: Record<string, string> = {
-  "not-configured": "Manager login is not configured yet. Add ADMIN_PASSWORD and ADMIN_SESSION_SECRET to the local environment and Vercel project settings.",
-  login: "The manager password was not accepted.",
+  "not-configured": "Manager phone verification is not configured yet. Add the manager phone, session secret, and SMS provider settings.",
+  login: "The manager verification code was not accepted.",
   "product-fields": "Check the product fields. Price must be a USD amount and stock must be a whole number or blank when first added.",
   "save-product": "Product could not be saved. Check that its slug and variant labels are unique.",
   "variant-fields": "Check the variant name, price, and stock quantity.",
@@ -35,23 +37,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   if (!await hasManagerSession()) {
     return (
-      <main className="manager-shell manager-login-shell">
-        <section className="manager-login-card">
-          <p className="eyebrow">Shine Baba Shop</p>
-          <h1>Manager <em>sign in.</em></h1>
-          <p>Manage products, stock, and customer order requests.</p>
-          {params.error && <div className="manager-alert error">{errors[params.error] ?? "Manager sign in failed."}</div>}
-          {isManagerLoginConfigured() ? (
-            <form action={managerLogin} className="manager-form">
-              <label>Manager password<input type="password" name="password" required autoComplete="current-password" autoFocus /></label>
-              <button className="button button-dark" type="submit">Sign in</button>
-            </form>
-          ) : (
-            <div className="manager-alert">Set ADMIN_PASSWORD and ADMIN_SESSION_SECRET in your local environment and Vercel project settings to enable manager access.</div>
-          )}
-          <Link className="manager-back-link" href="/">Back to the shop</Link>
-        </section>
-      </main>
+      <AdminManagerLogin
+        configured={isManagerLoginConfigured()}
+        phoneHint={getManagerPhoneHint()}
+        initialError={params.error ? errors[params.error] ?? "Manager sign in failed." : undefined}
+      />
     );
   }
 

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "My account",
-  description: "Sign in to see your Shine Baba Shop orders and saved delivery details.",
+  description: "Verify your phone number to see your Shine Baba Shop orders and saved delivery details.",
 };
 
 export default async function AccountPage() {

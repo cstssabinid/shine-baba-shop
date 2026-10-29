@@ -93,6 +93,8 @@ model User {
   emailVerified Boolean       @default(false)
   image         String?
   phone         String?       @unique
+  phoneNumber   String?       @unique
+  phoneNumberVerified Boolean @default(false)
   role          UserRole      @default(CUSTOMER)
   status        AccountStatus @default(ACTIVE)
   createdAt     DateTime      @default(now())

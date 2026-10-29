@@ -50,6 +50,8 @@ export function SiteFooter() {
           <div className="payment-chips">
             <span>MoMo</span><span>Airtel</span><span>VISA</span><span>Mastercard</span>
           </div>
+          <p className="footer-title footer-payment-title">{t("Partner Studio")}</p>
+          <a href="https://berwaphotohub.vercel.app/" target="_blank" rel="noreferrer">Berwa Photo Hub <span aria-hidden="true">↗</span></a>
         </div>
       </div>
       <div className="container footer-bottom">
