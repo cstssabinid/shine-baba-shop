@@ -25,7 +25,14 @@ const methods = [
 
 export function CheckoutPageContent({ profile }: { profile: CheckoutDefaults }) {
   const { items, products, subtotal, ready } = useCart();
-  const { locale, t } = usePreferences();
+  const { locale, t, exchangeRate } = usePreferences();
+  const subtotalRwf = items.reduce((sum, line) => {
+    const product = products.find((entry) => entry.slug === line.slug);
+    if (!product) return sum;
+    const variant = product.variants?.find((entry) => entry.label === (line.option ?? "Default")) ?? product.variants?.[0];
+    const unitRwf = variant?.priceRwf ?? Math.round((variant?.price ?? product.price) * exchangeRate.usdToRwf);
+    return sum + unitRwf * line.quantity;
+  }, 0);
   const [method, setMethod] = useState("mtn");
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
@@ -103,12 +110,13 @@ export function CheckoutPageContent({ profile }: { profile: CheckoutDefaults }) 
               const product = localizeProduct(sourceProduct, locale);
               const variant = sourceProduct.variants?.find((entry) => entry.label === (line.option ?? "Default")) ?? sourceProduct.variants?.[0];
               const price = variant?.price ?? sourceProduct.price;
-              return <div className="checkout-item" key={line.slug + "::" + (line.option ?? "")}><span>{product.name}{line.option ? " Â· " + localizeOption(sourceProduct, line.option, locale) : ""} <b>Ã— {line.quantity}</b></span><PriceDisplay usdAmount={price * line.quantity} /></div>;
+              const priceRwf = variant?.priceRwf ?? Math.round(price * exchangeRate.usdToRwf);
+              return <div className="checkout-item" key={line.slug + "::" + (line.option ?? "")}><span>{product.name}{line.option ? " Â· " + localizeOption(sourceProduct, line.option, locale) : ""} <b>Ã— {line.quantity}</b></span><PriceDisplay usdAmount={price * line.quantity} rwfAmount={priceRwf * line.quantity} /></div>;
             })}
           </div>
-          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} /></div>
+          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} rwfAmount={subtotalRwf} /></div>
           <div className="summary-row"><span>{t("Delivery")}</span><span>{t("To be confirmed")}</span></div>
-          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} /></div>
+          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} rwfAmount={subtotalRwf} /></div>
           <p className="summary-note">{t("Displayed prices remain random placeholders. The shop will confirm the amount before payment.")}</p>
           <Link className="text-link" href="/cart">â† {t("Back to your bag")}</Link>
         </aside>

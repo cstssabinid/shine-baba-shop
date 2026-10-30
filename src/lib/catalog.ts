@@ -3,6 +3,7 @@ export type Product = {
   name: string;
   category: string;
   price: number;
+  priceRwf?: number | null;
   description: string;
   detail: string;
   shop: string;
@@ -16,6 +17,7 @@ export type Product = {
     id: string;
     label: string;
     price: number;
+    priceRwf?: number | null;
     stockQuantity: number | null;
     isPricePlaceholder: boolean;
   }[];

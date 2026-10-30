@@ -9,7 +9,14 @@ import { usePreferences } from "@/components/preferences-provider";
 
 export default function CartPage() {
   const { items, products, subtotal, ready, setQuantity, removeItem } = useCart();
-  const { locale, t } = usePreferences();
+  const { locale, t, exchangeRate } = usePreferences();
+  const subtotalRwf = items.reduce((sum, line) => {
+    const product = products.find((entry) => entry.slug === line.slug);
+    if (!product) return sum;
+    const variant = product.variants?.find((entry) => entry.label === (line.option ?? "Default")) ?? product.variants?.[0];
+    const unitRwf = variant?.priceRwf ?? Math.round((variant?.price ?? product.price) * exchangeRate.usdToRwf);
+    return sum + unitRwf * line.quantity;
+  }, 0);
 
   if (!ready) {
     return <main className="page-main"><div className="container loading-state">{t("Getting your bag ready…")}</div></main>;
@@ -43,6 +50,7 @@ export default function CartPage() {
             const product = localizeProduct(sourceProduct, locale);
             const variant = sourceProduct.variants?.find((entry) => entry.label === (line.option ?? "Default")) ?? sourceProduct.variants?.[0];
             const linePrice = variant?.price ?? sourceProduct.price;
+            const linePriceRwf = variant?.priceRwf ?? Math.round(linePrice * exchangeRate.usdToRwf);
             return (
               <article className="cart-line" key={line.slug + "::" + (line.option ?? "")}>
                 <Link className="cart-line-art" href={"/products/" + product.slug}><ProductArt product={product} compact /></Link>
@@ -50,7 +58,7 @@ export default function CartPage() {
                   <p className="eyebrow">{localizeCategory(sourceProduct.category, locale)}</p>
                   <Link href={"/products/" + product.slug} className="cart-line-title">{product.name}</Link>
                   {line.option && <p className="cart-line-option">{product.options?.label}: {localizeOption(sourceProduct, line.option, locale)}</p>}
-                  <PriceDisplay usdAmount={linePrice} className="cart-line-price" />
+                  <PriceDisplay usdAmount={linePrice} rwfAmount={linePriceRwf} className="cart-line-price" />
                   {variant?.stockQuantity === null && <p className="cart-line-option">{t("Stock not set; this item cannot be ordered yet.")}</p>}
                   {variant && variant.stockQuantity !== null && line.quantity > variant.stockQuantity && <p className="cart-line-option">{t("Only")} {variant.stockQuantity} {t("available")}</p>}
                   <button className="remove-link" onClick={() => removeItem(line.slug, line.option)} type="button">{t("Remove")}</button>
@@ -60,7 +68,7 @@ export default function CartPage() {
                   <span>{line.quantity}</span>
                   <button type="button" aria-label={t("Increase quantity")} onClick={() => setQuantity(line.slug, line.option, line.quantity + 1)}>+</button>
                 </div>
-                <PriceDisplay usdAmount={linePrice * line.quantity} className="cart-line-total" />
+                <PriceDisplay usdAmount={linePrice * line.quantity} rwfAmount={linePriceRwf * line.quantity} className="cart-line-total" />
               </article>
             );
           })}
@@ -69,9 +77,9 @@ export default function CartPage() {
         <aside className="cart-summary">
           <p className="eyebrow">{t("Order summary")}</p>
           <h2>{t("A good choice.")}</h2>
-          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} /></div>
+          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} rwfAmount={subtotalRwf} /></div>
           <div className="summary-row"><span>{t("Delivery")}</span><span>{t("To be confirmed")}</span></div>
-          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} /></div>
+          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} rwfAmount={subtotalRwf} /></div>
           <p className="summary-note">{t("Delivery fee and payment are confirmed with the shop. Order requests reserve counted stock but do not collect payment online.")}</p>
           <Link className="button button-dark button-full" href="/checkout">{t("Continue to checkout")} <span>↗</span></Link>
           <div className="cart-payment-note"><span>MoMo</span><span>Airtel</span><span>VISA</span><span>Mastercard</span></div>

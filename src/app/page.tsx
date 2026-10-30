@@ -58,7 +58,7 @@ export default function HomePage() {
             </div>
             <div className="hero-float-card hero-float-bottom">
               {heroProduct && <><span className="hero-mini-art"><ProductArt product={products[0]} compact /></span>
-              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><PriceDisplay usdAmount={heroProduct.price} className="hero-product-price" /></span></>}
+              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><PriceDisplay usdAmount={heroProduct.price} rwfAmount={heroProduct.priceRwf} className="hero-product-price" /></span></>}
             </div>
             <span className="hero-sunburst">✳</span>
           </div>

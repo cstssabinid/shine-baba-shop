@@ -16,9 +16,13 @@ function slugify(value: string) {
   return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
 }
 
-function usdCentsFromRwf(value: FormDataEntryValue | null, usdToRwf: number) {
-  if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,2})?$/.test(value.trim())) return null;
+function rwfAmount(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !/^\d{1,10}$/.test(value.trim())) return null;
   const amount = Number(value.trim());
+  return Number.isSafeInteger(amount) && amount <= 2_147_483_647 ? amount : null;
+}
+
+function usdCentsFromRwf(amount: number, usdToRwf: number) {
   if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(usdToRwf) || usdToRwf <= 0) return null;
   const usdCents = Math.round((amount / usdToRwf) * 100);
   return Number.isSafeInteger(usdCents) && usdCents <= 2_147_483_647 ? usdCents : null;
@@ -76,9 +80,10 @@ export async function saveProduct(formData: FormData) {
   if (!productId) {
     const slugFromForm = String(formData.get("slug") ?? "").trim();
     const slug = slugify(slugFromForm || name);
-    const priceAmount = usdCentsFromRwf(formData.get("price"), usdToRwf);
+    const priceRwf = rwfAmount(formData.get("price"));
+    const priceAmount = priceRwf === null ? null : usdCentsFromRwf(priceRwf, usdToRwf);
     const openingStock = stockValue(formData.get("stock"));
-    if (!slug || !slugify(category) || priceAmount === null || priceAmount < 1 || openingStock === null) redirect("/admin?error=product-fields");
+    if (!slug || !slugify(category) || priceRwf === null || priceRwf < 1 || priceAmount === null || priceAmount < 1 || openingStock === null) redirect("/admin?error=product-fields");
     try {
       await prisma.$transaction(async (tx) => {
         const categorySlug = slugify(category);
@@ -87,7 +92,7 @@ export async function saveProduct(formData: FormData) {
         if (!shop) throw new Error("Shop is not seeded");
         const product = await tx.product.create({ data: { shopId: shop.id, categoryId: storedCategory.id, name, slug, description, status: status as "ACTIVE" | "DRAFT" | "ARCHIVED", isFeatured: featured } });
         await tx.productImage.create({ data: { productId: product.id, url: image, altText: name, sortOrder: 0 } });
-        const variant = await tx.productVariant.create({ data: { productId: product.id, label: "Default", sku: `${slug}-default-${randomBytes(3).toString("hex")}`, options: {}, currency: "USD", priceAmount, isPricePlaceholder: true, stockQuantity: openingStock } });
+        const variant = await tx.productVariant.create({ data: { productId: product.id, label: "Default", sku: `${slug}-default-${randomBytes(3).toString("hex")}`, options: {}, currency: "USD", priceAmount, priceRwf, isPricePlaceholder: true, stockQuantity: openingStock } });
         if (openingStock !== undefined && openingStock > 0) await tx.inventoryMovement.create({ data: { variantId: variant.id, delta: openingStock, reason: "Opening stock set by manager" } });
       });
       refreshCatalog(slug);
@@ -116,15 +121,16 @@ export async function saveProduct(formData: FormData) {
         const variant = existing.variants.find((entry) => entry.id === variantIds[index]);
         if (!variant) continue;
         const enteredPrice = prices[index]?.trim();
-        const displayedCurrentPrice = variant.priceAmount === null ? null : Math.round((variant.priceAmount / 100) * usdToRwf);
-        const newPrice = !enteredPrice || Number(enteredPrice) === displayedCurrentPrice
+        const newPriceRwf = rwfAmount(enteredPrice ?? null);
+        const displayedCurrentPrice = variant.priceRwf ?? Math.round((variant.priceAmount / 100) * usdToRwf);
+        const newPrice = newPriceRwf !== null && newPriceRwf === displayedCurrentPrice
           ? variant.priceAmount
-          : usdCentsFromRwf(enteredPrice, usdToRwf);
+          : newPriceRwf === null ? null : usdCentsFromRwf(newPriceRwf, usdToRwf);
         const requestedStock = stockValue(stocks[index] ?? "");
         if (requestedStock === null) throw new Error("Invalid variant value");
         const newStock = requestedStock === undefined ? variant.stockQuantity : requestedStock;
-        if (newPrice === null || newPrice < 1) throw new Error("Invalid variant value");
-        await tx.productVariant.update({ where: { id: variant.id }, data: { priceAmount: newPrice, stockQuantity: newStock, isPricePlaceholder: placeholders[index] === "true" } });
+        if (newPrice === null || newPrice < 1 || newPriceRwf === null || newPriceRwf < 1) throw new Error("Invalid variant price");
+        await tx.productVariant.update({ where: { id: variant.id }, data: { priceAmount: newPrice, priceRwf: newPriceRwf, stockQuantity: newStock, isPricePlaceholder: placeholders[index] === "true" } });
         if (newStock !== variant.stockQuantity && newStock !== null) {
           const delta = newStock - (variant.stockQuantity ?? 0);
           await tx.inventoryMovement.create({ data: { variantId: variant.id, delta, reason: variant.stockQuantity === null ? "Opening stock set by manager" : "Manager stock adjustment" } });
@@ -155,12 +161,13 @@ export async function addVariant(formData: FormData) {
   const { usdToRwf } = await getUsdToRwfRate();
   const productId = String(formData.get("productId") ?? "");
   const label = String(formData.get("label") ?? "").trim().slice(0, 100);
-  const priceAmount = usdCentsFromRwf(formData.get("price"), usdToRwf);
+  const priceRwf = rwfAmount(formData.get("price"));
+  const priceAmount = priceRwf === null ? null : usdCentsFromRwf(priceRwf, usdToRwf);
   const stockQuantity = stockValue(formData.get("stock"));
-  if (!productId || !label || priceAmount === null || priceAmount < 1 || stockQuantity === null) redirect("/admin?error=variant-fields");
+  if (!productId || !label || priceRwf === null || priceRwf < 1 || priceAmount === null || priceAmount < 1 || stockQuantity === null) redirect("/admin?error=variant-fields");
   try {
     const product = await prisma.product.findUniqueOrThrow({ where: { id: productId }, select: { slug: true, name: true } });
-    const variant = await prisma.productVariant.create({ data: { productId, label, sku: `${product.slug}-${slugify(label)}-${randomBytes(3).toString("hex")}`, options: {}, currency: "USD", priceAmount, isPricePlaceholder: true, stockQuantity } });
+    const variant = await prisma.productVariant.create({ data: { productId, label, sku: `${product.slug}-${slugify(label)}-${randomBytes(3).toString("hex")}`, options: {}, currency: "USD", priceAmount, priceRwf, isPricePlaceholder: true, stockQuantity } });
     if (stockQuantity !== undefined && stockQuantity > 0) await prisma.inventoryMovement.create({ data: { variantId: variant.id, delta: stockQuantity, reason: "Opening stock set by manager" } });
     refreshCatalog(product.slug);
     redirect("/admin?notice=variant-added");
@@ -233,10 +240,12 @@ export async function confirmManualPayment(formData: FormData) {
   if (!orderId) redirect("/admin?error=order-update");
   const itemIds = formData.getAll("orderItemId").map(String);
   const enteredItemPrices = formData.getAll("orderItemPrice").map(String);
-  const itemPrices = enteredItemPrices.map((value) => usdCentsFromRwf(value, usdToRwf));
+  const itemPricesRwf = enteredItemPrices.map((value) => rwfAmount(value));
+  const itemPrices = itemPricesRwf.map((value) => value === null ? null : usdCentsFromRwf(value, usdToRwf));
   const enteredDeliveryFee = String(formData.get("deliveryFee") ?? "");
-  const deliveryFee = usdCentsFromRwf(enteredDeliveryFee, usdToRwf);
-  if (!itemIds.length || itemIds.length !== itemPrices.length || deliveryFee === null || deliveryFee < 0 || itemPrices.some((price) => price === null || price < 1)) redirect("/admin?error=order-update");
+  const deliveryFeeRwf = rwfAmount(enteredDeliveryFee);
+  const deliveryFee = deliveryFeeRwf === null ? null : usdCentsFromRwf(deliveryFeeRwf, usdToRwf);
+  if (!itemIds.length || itemIds.length !== itemPrices.length || deliveryFeeRwf === null || deliveryFee === null || itemPrices.some((price) => price === null || price < 1) || itemPricesRwf.some((price) => price === null || price < 1)) redirect("/admin?error=order-update");
   try {
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({ where: { id: orderId }, include: { payments: true, fulfillments: { include: { items: true } } } });
@@ -246,27 +255,34 @@ export async function confirmManualPayment(formData: FormData) {
       const orderItems = order.fulfillments.flatMap((sellerOrder) => sellerOrder.items);
       if (orderItems.length !== itemIds.length || orderItems.some((item) => !itemIds.includes(item.id))) throw new Error("Order items changed");
       const subtotalBySeller = new Map<string, number>();
+      const subtotalRwfBySeller = new Map<string, number>();
       let subtotalAmount = 0;
+      let subtotalRwf = 0;
       for (let index = 0; index < itemIds.length; index += 1) {
         const item = orderItems.find((entry) => entry.id === itemIds[index]);
-        const displayedCurrentPrice = item ? Math.round((item.unitPriceAmount / 100) * usdToRwf) : null;
-        const priceAmount = item && Number(enteredItemPrices[index]) === displayedCurrentPrice
+        const priceRwf = itemPricesRwf[index];
+        const displayedCurrentPrice = item?.unitPriceRwf ?? (item ? Math.round((item.unitPriceAmount / 100) * usdToRwf) : null);
+        const priceAmount = item && priceRwf !== null && priceRwf === displayedCurrentPrice
           ? item.unitPriceAmount
           : itemPrices[index];
-        if (!item || priceAmount === null || priceAmount === undefined) throw new Error("Invalid order item price");
+        if (!item || priceAmount === null || priceAmount === undefined || priceRwf === null) throw new Error("Invalid order item price");
         const lineTotalAmount = priceAmount * item.quantity;
+        const lineTotalRwf = priceRwf * item.quantity;
         subtotalAmount += lineTotalAmount;
+        subtotalRwf += lineTotalRwf;
         subtotalBySeller.set(item.sellerOrderId, (subtotalBySeller.get(item.sellerOrderId) ?? 0) + lineTotalAmount);
-        await tx.orderItem.update({ where: { id: item.id }, data: { unitPriceAmount: priceAmount, lineTotalAmount } });
+        subtotalRwfBySeller.set(item.sellerOrderId, (subtotalRwfBySeller.get(item.sellerOrderId) ?? 0) + lineTotalRwf);
+        await tx.orderItem.update({ where: { id: item.id }, data: { unitPriceAmount: priceAmount, unitPriceRwf: priceRwf, lineTotalAmount, lineTotalRwf } });
       }
-      for (const sellerOrder of order.fulfillments) await tx.sellerOrder.update({ where: { id: sellerOrder.id }, data: { subtotalAmount: subtotalBySeller.get(sellerOrder.id) ?? 0 } });
-      const displayedCurrentDeliveryFee = Math.round((order.deliveryFeeAmount / 100) * usdToRwf);
-      const finalDeliveryFee = Number(enteredDeliveryFee) === displayedCurrentDeliveryFee
+      for (const sellerOrder of order.fulfillments) await tx.sellerOrder.update({ where: { id: sellerOrder.id }, data: { subtotalAmount: subtotalBySeller.get(sellerOrder.id) ?? 0, subtotalRwf: subtotalRwfBySeller.get(sellerOrder.id) ?? 0 } });
+      const displayedCurrentDeliveryFee = order.deliveryFeeRwf ?? Math.round((order.deliveryFeeAmount / 100) * usdToRwf);
+      const finalDeliveryFee = deliveryFeeRwf === displayedCurrentDeliveryFee
         ? order.deliveryFeeAmount
         : deliveryFee;
       const totalAmount = subtotalAmount + finalDeliveryFee;
+      const totalRwf = subtotalRwf + deliveryFeeRwf;
       const nextStatus = order.status === "PENDING" ? "CONFIRMED" : order.status;
-      const updated = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { subtotalAmount, deliveryFeeAmount: finalDeliveryFee, totalAmount, status: nextStatus } });
+      const updated = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { subtotalAmount, subtotalRwf, deliveryFeeAmount: finalDeliveryFee, deliveryFeeRwf, totalAmount, totalRwf, status: nextStatus } });
       if (updated.count !== 1) throw new Error("Order changed concurrently");
       if (order.status === "PENDING") await tx.sellerOrder.updateMany({ where: { orderId, status: "NEW" }, data: { status: "CONFIRMED" } });
       await tx.payment.update({ where: { id: pendingPayment.id }, data: { amount: totalAmount, status: "PAID", paidAt: new Date() } });

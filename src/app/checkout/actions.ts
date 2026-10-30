@@ -21,8 +21,9 @@ const shopWhatsAppNumber = "250790384123";
 type OrderDetails = {
   orderNumber: string;
   subtotalAmount: number;
+  subtotalRwf: number;
   paymentMethod: keyof typeof paymentMethodLabels;
-  items: { productName: string; option: string; quantity: number; lineTotalAmount: number }[];
+  items: { productName: string; option: string; quantity: number; lineTotalAmount: number; lineTotalRwf: number }[];
 };
 
 function parseCart(value: FormDataEntryValue | null): SubmittedLine[] | null {
@@ -69,6 +70,7 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
 
   const session = await auth.api.getSession({ headers: await headers() });
   const registeredCustomerId = session?.user.id;
+  const exchangeRate = await getUsdToRwfRate();
 
   let orderDetails: OrderDetails;
   try {
@@ -81,7 +83,8 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
             select: {
               orderNumber: true,
               subtotalAmount: true,
-              fulfillments: { select: { items: { select: { productNameSnapshot: true, quantity: true, lineTotalAmount: true, variant: { select: { label: true } } } } } },
+              subtotalRwf: true,
+              fulfillments: { select: { items: { select: { productNameSnapshot: true, quantity: true, lineTotalAmount: true, lineTotalRwf: true, variant: { select: { label: true } } } } } },
             },
           },
         },
@@ -89,16 +92,18 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
       if (previous) return {
         orderNumber: previous.order.orderNumber,
         subtotalAmount: previous.order.subtotalAmount,
+        subtotalRwf: previous.order.subtotalRwf ?? Math.round((previous.order.subtotalAmount / 100) * exchangeRate.usdToRwf),
         paymentMethod: previous.method,
         items: previous.order.fulfillments.flatMap((fulfillment) => fulfillment.items.map((item) => ({
           productName: item.productNameSnapshot,
           option: item.variant.label === "Default" ? "" : item.variant.label,
           quantity: item.quantity,
           lineTotalAmount: item.lineTotalAmount,
+          lineTotalRwf: item.lineTotalRwf ?? Math.round((item.lineTotalAmount / 100) * exchangeRate.usdToRwf),
         }))),
       };
 
-      const resolved = [] as { variantId: string; productId: string; productName: string; variantLabel: string; sku: string | null; price: number; quantity: number; options: Record<string, string>; shopId: string }[];
+      const resolved = [] as { variantId: string; productId: string; productName: string; variantLabel: string; sku: string | null; price: number; priceRwf: number; quantity: number; options: Record<string, string>; shopId: string }[];
       for (const line of lines) {
         const variant = await tx.productVariant.findFirst({
           where: { label: line.option ?? "Default", isActive: true, product: { slug: line.slug, status: "ACTIVE" } },
@@ -106,10 +111,11 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
         });
         if (!variant || variant.stockQuantity === null || variant.stockQuantity < line.quantity) throw new Error("OUT_OF_STOCK");
         const options = variant.options && typeof variant.options === "object" && !Array.isArray(variant.options) ? variant.options as Record<string, string> : {};
-        resolved.push({ variantId: variant.id, productId: variant.product.id, productName: variant.product.name, variantLabel: variant.label, sku: variant.sku, price: variant.priceAmount, quantity: line.quantity, options, shopId: variant.product.shopId });
+        resolved.push({ variantId: variant.id, productId: variant.product.id, productName: variant.product.name, variantLabel: variant.label, sku: variant.sku, price: variant.priceAmount, priceRwf: variant.priceRwf ?? Math.round((variant.priceAmount / 100) * exchangeRate.usdToRwf), quantity: line.quantity, options, shopId: variant.product.shopId });
       }
 
       const subtotal = resolved.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotalRwf = resolved.reduce((sum, item) => sum + item.priceRwf * item.quantity, 0);
       for (const item of resolved) {
         const claimed = await tx.productVariant.updateMany({ where: { id: item.variantId, isActive: true, stockQuantity: { gte: item.quantity } }, data: { stockQuantity: { decrement: item.quantity } } });
         if (claimed.count !== 1) throw new Error("OUT_OF_STOCK");
@@ -129,7 +135,9 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
         status: "PENDING",
         currency: "USD",
         subtotalAmount: subtotal,
+        subtotalRwf,
         totalAmount: subtotal,
+        totalRwf: subtotalRwf,
         deliveryAddressSnapshot: { recipient: name, phone, district, sector, directions },
         customerNote: channel === "whatsapp" ? "Customer requested order confirmation via WhatsApp." : null,
       } });
@@ -137,7 +145,8 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
       const shopTotals = new Map<string, number>();
       for (const item of resolved) shopTotals.set(item.shopId, (shopTotals.get(item.shopId) ?? 0) + item.price * item.quantity);
       for (const [shopId, sellerSubtotal] of shopTotals) {
-        const sellerOrder = await tx.sellerOrder.create({ data: { orderId: order.id, shopId, subtotalAmount: sellerSubtotal } });
+        const sellerSubtotalRwf = resolved.filter((item) => item.shopId === shopId).reduce((sum, item) => sum + item.priceRwf * item.quantity, 0);
+        const sellerOrder = await tx.sellerOrder.create({ data: { orderId: order.id, shopId, subtotalAmount: sellerSubtotal, subtotalRwf: sellerSubtotalRwf } });
         await tx.orderItem.createMany({ data: resolved.filter((item) => item.shopId === shopId).map((item) => ({
           sellerOrderId: sellerOrder.id,
           productId: item.productId,
@@ -146,8 +155,10 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
           skuSnapshot: item.sku,
           optionSnapshot: item.options,
           unitPriceAmount: item.price,
+          unitPriceRwf: item.priceRwf,
           quantity: item.quantity,
           lineTotalAmount: item.price * item.quantity,
+          lineTotalRwf: item.priceRwf * item.quantity,
         })) });
       }
 
@@ -156,12 +167,14 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
       return {
         orderNumber,
         subtotalAmount: subtotal,
+        subtotalRwf,
         paymentMethod: paymentMethods[paymentMethodKey as keyof typeof paymentMethods],
         items: resolved.map((item) => ({
           productName: item.productName,
           option: item.variantLabel === "Default" ? "" : item.variantLabel,
           quantity: item.quantity,
           lineTotalAmount: item.price * item.quantity,
+          lineTotalRwf: item.priceRwf * item.quantity,
         })),
       };
     });
@@ -176,11 +189,9 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
   revalidatePath("/");
   revalidatePath("/admin");
   if (channel === "whatsapp") {
-    const exchangeRate = await getUsdToRwfRate();
     const itemLines = orderDetails.items.map((item) => {
       const option = item.option ? ` (${item.option})` : "";
-      const usdTotal = item.lineTotalAmount / 100;
-      return `- ${item.productName}${option} x ${item.quantity}: ${formatRwf(usdTotal * exchangeRate.usdToRwf)} (${formatUsd(usdTotal)})`;
+      return `- ${item.productName}${option} x ${item.quantity}: ${formatRwf(item.lineTotalRwf)} (${formatUsd(item.lineTotalRwf / exchangeRate.usdToRwf)})`;
     });
     const rateNote = exchangeRate.source === "BNR"
       ? `Indicative rate: 1 USD = ${formatRwf(exchangeRate.usdToRwf)} (BNR reference, ${exchangeRate.asOf ?? "latest available"}).`
@@ -191,7 +202,7 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
       "",
       ...itemLines,
       "",
-      `Estimated subtotal: ${formatRwf(orderDetails.subtotalAmount / 100 * exchangeRate.usdToRwf)} (${formatUsd(orderDetails.subtotalAmount / 100)})`,
+      `Estimated subtotal: ${formatRwf(orderDetails.subtotalRwf)} (${formatUsd(orderDetails.subtotalRwf / exchangeRate.usdToRwf)})`,
       rateNote,
       `Customer: ${name}`,
       `Phone: ${phone}`,

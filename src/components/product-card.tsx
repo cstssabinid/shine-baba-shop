@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="eyebrow product-category">{localizeCategory(product.category, locale)}</p>
         <Link className="product-card-title" href={"/products/" + item.slug}>{item.name}</Link>
         <div className="product-card-bottom">
-          <PriceDisplay usdAmount={item.price} />
+          <PriceDisplay usdAmount={item.price} rwfAmount={product.priceRwf} />
           {item.options
             ? <Link href={"/products/" + item.slug} className="button button-outline button-small">{t("Choose")}</Link>
             : <AddToCartButton slug={item.slug} label={t("Add")} className="button-small" disabled={!product.variants?.[0] || product.variants[0].stockQuantity === null || product.variants[0].stockQuantity < 1} />}

@@ -22,6 +22,7 @@ type OrderSummary = {
   orderNumber: string;
   status: string;
   totalAmount: number;
+  totalRwf: number | null;
   createdAt: string;
   items: { name: string; quantity: number }[];
 };
@@ -172,7 +173,7 @@ export function CustomerAccountPanel({ account }: { account: CustomerAccountData
             {account.orders.length ? <div className="customer-order-list">{account.orders.map((order) => <article className="customer-order" key={order.id}>
               <div className="customer-order-heading"><div><strong>{order.orderNumber}</strong><small>{order.createdAt}</small></div><span className={`customer-order-status status-${order.status.toLowerCase()}`}>{orderStatus[order.status] ?? order.status}</span></div>
               <p>{order.items.map((item) => `${item.name} × ${item.quantity}`).join(" · ")}</p>
-              <PriceDisplay usdAmount={order.totalAmount / 100} className="customer-order-total" />
+              <PriceDisplay usdAmount={order.totalAmount / 100} rwfAmount={order.totalRwf} className="customer-order-total" />
             </article>)}</div> : <div className="customer-account-empty"><p>{t("Your order requests will appear here after checkout.")}</p><Link href="/products" className="text-link">{t("Explore the shop")}</Link></div>}
           </section>
         </div>

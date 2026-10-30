@@ -94,11 +94,11 @@ model User {
   image         String?
   phone         String?       @unique
   phoneNumber   String?       @unique
-  phoneNumberVerified Boolean @default(false)
-  role          UserRole      @default(CUSTOMER)
-  status        AccountStatus @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  phoneNumberVerified Boolean       @default(false)
+  role                UserRole      @default(CUSTOMER)
+  status              AccountStatus @default(ACTIVE)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   addresses       Address[]
   sessions        Session[]
@@ -279,6 +279,7 @@ model ProductVariant {
   options              Json
   currency             String   @default("USD")
   priceAmount          Int
+  priceRwf             Int?
   isPricePlaceholder   Boolean  @default(false)
   compareAtPriceAmount Int?
   stockQuantity        Int?
@@ -363,9 +364,12 @@ model Order {
   status                  OrderStatus @default(PENDING)
   currency                String      @default("USD")
   subtotalAmount          Int
+  subtotalRwf             Int?
   deliveryFeeAmount       Int         @default(0)
+  deliveryFeeRwf          Int?
   discountAmount          Int         @default(0)
   totalAmount             Int
+  totalRwf                Int?
   deliveryAddressSnapshot Json
   customerNote            String?
   createdAt               DateTime    @default(now())
@@ -387,7 +391,9 @@ model SellerOrder {
   shopId            String
   status            SellerOrderStatus @default(NEW)
   subtotalAmount    Int
+  subtotalRwf       Int?
   deliveryFeeAmount Int               @default(0)
+  deliveryFeeRwf    Int?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -409,8 +415,10 @@ model OrderItem {
   skuSnapshot         String?
   optionSnapshot      Json
   unitPriceAmount     Int
+  unitPriceRwf        Int?
   quantity            Int
   lineTotalAmount     Int
+  lineTotalRwf        Int?
   createdAt           DateTime @default(now())
 
   sellerOrder SellerOrder    @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
@@ -548,4 +556,3 @@ model SupportMessage {
 
   @@index([status, createdAt])
 }
-
