@@ -46,7 +46,7 @@ export function SiteFooter() {
         </div>
         <div className="footer-column">
           <p className="footer-title">{t("Visit us")}</p>
-          <p>KN 20 Ave<br />Kigali City, Rwanda</p>
+          <p>Downtown<br />Kigali City, Rwanda</p>
           <p className="footer-title footer-payment-title">{t("Payment options")}</p>
           <div className="payment-chips">
             <span>MoMo</span><span>Airtel</span><span>VISA</span><span>Mastercard</span>

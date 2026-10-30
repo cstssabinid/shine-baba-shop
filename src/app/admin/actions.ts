@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { hasManagerSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { categories as catalogCategories } from "@/lib/catalog";
+import { getUsdToRwfRate } from "@/lib/exchange-rate";
 
 async function requireManager() {
   if (!await hasManagerSession()) redirect("/admin?error=login");
@@ -15,9 +16,12 @@ function slugify(value: string) {
   return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70);
 }
 
-function cents(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !/^\d{1,7}(\.\d{1,2})?$/.test(value.trim())) return null;
-  return Math.round(Number(value) * 100);
+function usdCentsFromRwf(value: FormDataEntryValue | null, usdToRwf: number) {
+  if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,2})?$/.test(value.trim())) return null;
+  const amount = Number(value.trim());
+  if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(usdToRwf) || usdToRwf <= 0) return null;
+  const usdCents = Math.round((amount / usdToRwf) * 100);
+  return Number.isSafeInteger(usdCents) && usdCents <= 2_147_483_647 ? usdCents : null;
 }
 
 function stockValue(value: FormDataEntryValue | null) {
@@ -57,6 +61,7 @@ function refreshCatalog(slug?: string) {
 
 export async function saveProduct(formData: FormData) {
   await requireManager();
+  const { usdToRwf } = await getUsdToRwfRate();
   const id = formData.get("productId");
   const name = String(formData.get("name") ?? "").trim().slice(0, 120);
   const description = String(formData.get("description") ?? "").trim().slice(0, 3000);
@@ -71,7 +76,7 @@ export async function saveProduct(formData: FormData) {
   if (!productId) {
     const slugFromForm = String(formData.get("slug") ?? "").trim();
     const slug = slugify(slugFromForm || name);
-    const priceAmount = cents(formData.get("price"));
+    const priceAmount = usdCentsFromRwf(formData.get("price"), usdToRwf);
     const openingStock = stockValue(formData.get("stock"));
     if (!slug || !slugify(category) || priceAmount === null || priceAmount < 1 || openingStock === null) redirect("/admin?error=product-fields");
     try {
@@ -110,7 +115,11 @@ export async function saveProduct(formData: FormData) {
       for (let index = 0; index < variantIds.length; index += 1) {
         const variant = existing.variants.find((entry) => entry.id === variantIds[index]);
         if (!variant) continue;
-        const newPrice = prices[index]?.trim() ? cents(prices[index]) : variant.priceAmount;
+        const enteredPrice = prices[index]?.trim();
+        const displayedCurrentPrice = variant.priceAmount === null ? null : Math.round((variant.priceAmount / 100) * usdToRwf);
+        const newPrice = !enteredPrice || Number(enteredPrice) === displayedCurrentPrice
+          ? variant.priceAmount
+          : usdCentsFromRwf(enteredPrice, usdToRwf);
         const requestedStock = stockValue(stocks[index] ?? "");
         if (requestedStock === null) throw new Error("Invalid variant value");
         const newStock = requestedStock === undefined ? variant.stockQuantity : requestedStock;
@@ -143,9 +152,10 @@ export async function archiveProduct(formData: FormData) {
 
 export async function addVariant(formData: FormData) {
   await requireManager();
+  const { usdToRwf } = await getUsdToRwfRate();
   const productId = String(formData.get("productId") ?? "");
   const label = String(formData.get("label") ?? "").trim().slice(0, 100);
-  const priceAmount = cents(formData.get("price"));
+  const priceAmount = usdCentsFromRwf(formData.get("price"), usdToRwf);
   const stockQuantity = stockValue(formData.get("stock"));
   if (!productId || !label || priceAmount === null || priceAmount < 1 || stockQuantity === null) redirect("/admin?error=variant-fields");
   try {
@@ -218,11 +228,14 @@ export async function updateOrderStatus(formData: FormData) {
 
 export async function confirmManualPayment(formData: FormData) {
   await requireManager();
+  const { usdToRwf } = await getUsdToRwfRate();
   const orderId = String(formData.get("orderId") ?? "");
   if (!orderId) redirect("/admin?error=order-update");
   const itemIds = formData.getAll("orderItemId").map(String);
-  const itemPrices = formData.getAll("orderItemPrice").map((value) => cents(value));
-  const deliveryFee = cents(formData.get("deliveryFee"));
+  const enteredItemPrices = formData.getAll("orderItemPrice").map(String);
+  const itemPrices = enteredItemPrices.map((value) => usdCentsFromRwf(value, usdToRwf));
+  const enteredDeliveryFee = String(formData.get("deliveryFee") ?? "");
+  const deliveryFee = usdCentsFromRwf(enteredDeliveryFee, usdToRwf);
   if (!itemIds.length || itemIds.length !== itemPrices.length || deliveryFee === null || deliveryFee < 0 || itemPrices.some((price) => price === null || price < 1)) redirect("/admin?error=order-update");
   try {
     await prisma.$transaction(async (tx) => {
@@ -236,7 +249,10 @@ export async function confirmManualPayment(formData: FormData) {
       let subtotalAmount = 0;
       for (let index = 0; index < itemIds.length; index += 1) {
         const item = orderItems.find((entry) => entry.id === itemIds[index]);
-        const priceAmount = itemPrices[index];
+        const displayedCurrentPrice = item ? Math.round((item.unitPriceAmount / 100) * usdToRwf) : null;
+        const priceAmount = item && Number(enteredItemPrices[index]) === displayedCurrentPrice
+          ? item.unitPriceAmount
+          : itemPrices[index];
         if (!item || priceAmount === null || priceAmount === undefined) throw new Error("Invalid order item price");
         const lineTotalAmount = priceAmount * item.quantity;
         subtotalAmount += lineTotalAmount;
@@ -244,9 +260,13 @@ export async function confirmManualPayment(formData: FormData) {
         await tx.orderItem.update({ where: { id: item.id }, data: { unitPriceAmount: priceAmount, lineTotalAmount } });
       }
       for (const sellerOrder of order.fulfillments) await tx.sellerOrder.update({ where: { id: sellerOrder.id }, data: { subtotalAmount: subtotalBySeller.get(sellerOrder.id) ?? 0 } });
-      const totalAmount = subtotalAmount + deliveryFee;
+      const displayedCurrentDeliveryFee = Math.round((order.deliveryFeeAmount / 100) * usdToRwf);
+      const finalDeliveryFee = Number(enteredDeliveryFee) === displayedCurrentDeliveryFee
+        ? order.deliveryFeeAmount
+        : deliveryFee;
+      const totalAmount = subtotalAmount + finalDeliveryFee;
       const nextStatus = order.status === "PENDING" ? "CONFIRMED" : order.status;
-      const updated = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { subtotalAmount, deliveryFeeAmount: deliveryFee, totalAmount, status: nextStatus } });
+      const updated = await tx.order.updateMany({ where: { id: orderId, status: order.status }, data: { subtotalAmount, deliveryFeeAmount: finalDeliveryFee, totalAmount, status: nextStatus } });
       if (updated.count !== 1) throw new Error("Order changed concurrently");
       if (order.status === "PENDING") await tx.sellerOrder.updateMany({ where: { orderId, status: "NEW" }, data: { status: "CONFIRMED" } });
       await tx.payment.update({ where: { id: pendingPayment.id }, data: { amount: totalAmount, status: "PAID", paidAt: new Date() } });

@@ -4,6 +4,7 @@ import { PriceDisplay } from "@/components/price-display";
 import { hasManagerSession, isManagerLoginConfigured } from "@/lib/admin-auth";
 import { categories as catalogCategories, products as catalogProducts } from "@/lib/catalog";
 import { prisma } from "@/lib/prisma";
+import { getUsdToRwfRate } from "@/lib/exchange-rate";
 import { managerLogout } from "@/app/admin/auth-actions";
 import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, saveProduct, updateOrderStatus } from "@/app/admin/actions";
 import { AdminImageUpload } from "@/components/admin-image-upload";
@@ -24,7 +25,7 @@ const messages: Record<string, string> = {
 const errors: Record<string, string> = {
   "not-configured": "Manager password login is not configured yet. Add ADMIN_PASSWORD and ADMIN_SESSION_SECRET to the environment settings.",
   login: "The manager password was not accepted.",
-  "product-fields": "Check the product fields. Price must be a USD amount and stock must be a whole number or blank when first added.",
+  "product-fields": "Check the product fields. Price must be an RWF amount and stock must be a whole number or blank when first added.",
   "save-product": "Product could not be saved. Check that its slug and variant labels are unique.",
   "variant-fields": "Check the variant name, price, and stock quantity.",
   "variant-not-found": "That variant could not be found.",
@@ -50,10 +51,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const [products, orders, recentMovements] = await Promise.all([
+  const [products, orders, recentMovements, exchangeRate] = await Promise.all([
     prisma.product.findMany({ include: { category: true, images: { orderBy: { sortOrder: "asc" } }, variants: { orderBy: { createdAt: "asc" } } }, orderBy: [{ status: "asc" }, { updatedAt: "desc" }] }),
     prisma.order.findMany({ include: { user: true, address: true, fulfillments: { include: { items: true } }, payments: true }, orderBy: { createdAt: "desc" }, take: 30 }),
     prisma.inventoryMovement.findMany({ include: { variant: { include: { product: true } } }, orderBy: { createdAt: "desc" }, take: 18 }),
+    getUsdToRwfRate(),
   ]);
   const activeCount = products.filter((product) => product.status === "ACTIVE").length;
   const pendingCount = orders.filter((order) => order.status === "PENDING").length;
@@ -84,7 +86,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <label>URL slug<input name="slug" placeholder="Generated from product name if blank" maxLength={70} /></label>
           <label>Category<select name="category" required defaultValue=""><option value="" disabled>Select a category</option>{catalogCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}</select></label>
           <AdminImageUpload />
-          <label>USD price<input name="price" type="number" min="0.01" step="0.01" required placeholder="12.53" /><small>Marked as a placeholder price, as requested.</small></label>
+          <label>RWF price<input name="price" type="number" min="1" step="1" required placeholder="40000" /><small>Enter the price in RWF. The storefront shows its USD equivalent using the daily BNR rate ({exchangeRate.usdToRwf.toLocaleString("en-RW")} RWF per USD).</small></label>
           <label>Starting stock<input name="stock" type="number" min="0" step="1" placeholder="Leave blank until counted" /><small>Blank means stock is not yet counted and the item cannot be ordered.</small></label>
           <label className="manager-field-wide">Description<textarea name="description" required rows={3} maxLength={3000} /></label>
           <label>Status<select name="status" defaultValue="DRAFT"><option value="DRAFT">Draft</option><option value="ACTIVE">Live on storefront</option><option value="ARCHIVED">Archived</option></select></label>
@@ -111,7 +113,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <div className="manager-variant-row" key={variant.id}>
                     <input type="hidden" name="variantId" value={variant.id} />
                     <strong>{variant.label}{!variant.isActive && " · removed"}</strong>
-                    <label>USD price<input name="variantPrice" type="number" min="0.01" step="0.01" defaultValue={(variant.priceAmount / 100).toFixed(2)} required /></label>
+                    <label>RWF price<input name="variantPrice" type="number" min="1" step="1" defaultValue={Math.round((variant.priceAmount / 100) * exchangeRate.usdToRwf)} required /></label>
                     <label>Stock<input name="variantStock" type="number" min="0" step="1" defaultValue={variant.stockQuantity ?? ""} placeholder="Not counted" /></label>
                     <label>Price type<select name="variantPlaceholder" defaultValue={String(variant.isPricePlaceholder)}><option value="true">Placeholder</option><option value="false">Confirmed</option></select></label>
                   </div>
@@ -121,7 +123,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <div className="manager-inline-actions">
                 <form action={archiveProduct}><input type="hidden" name="productId" value={product.id} /><button className="text-button" type="submit">Archive product</button></form>
                 {product.variants.some((variant) => variant.isActive) && <form action={deactivateVariant} className="manager-variant-remove"><label>Remove variant<select name="variantId" required defaultValue="">{product.variants.filter((variant) => variant.isActive).map((variant) => <option key={variant.id} value={variant.id}>{variant.label}</option>)}</select></label><button className="text-button" type="submit">Remove</button></form>}
-                <form action={addVariant} className="manager-variant-add"><input type="hidden" name="productId" value={product.id} /><label>Add variant<input name="label" required placeholder="Variant name" maxLength={100} /></label><label>Price<input name="price" type="number" min="0.01" step="0.01" required placeholder="USD" /></label><label>Stock<input name="stock" type="number" min="0" step="1" placeholder="Not counted" /></label><button className="text-button" type="submit">Add variant</button></form>
+                <form action={addVariant} className="manager-variant-add"><input type="hidden" name="productId" value={product.id} /><label>Add variant<input name="label" required placeholder="Variant name" maxLength={100} /></label><label>RWF price<input name="price" type="number" min="1" step="1" required placeholder="40000" /></label><label>Stock<input name="stock" type="number" min="0" step="1" placeholder="Not counted" /></label><button className="text-button" type="submit">Add variant</button></form>
               </div>
             </details>
           ))}
@@ -140,7 +142,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <div><strong>{order.user.fullName}</strong><small>{order.user.phone ?? "No phone"}</small><small>{[order.address?.district, order.address?.sector, order.address?.directions].filter(Boolean).join(" · ")}</small></div>
               <div><strong>{itemCount} item{itemCount === 1 ? "" : "s"}</strong><PriceDisplay usdAmount={order.totalAmount / 100} className="manager-order-price" /><small>{paid ? "Paid" : "Payment pending"}</small></div>
               {order.status !== "CANCELLED" ? <div className="manager-order-actions"><form action={updateOrderStatus} className="manager-order-status"><input type="hidden" name="orderId" value={order.id} /><select name="status" defaultValue={order.status}>{order.status === "PENDING" && <><option value="PENDING">Pending</option><option value="CONFIRMED">Confirm order</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "CONFIRMED" && <><option value="CONFIRMED">Confirmed</option><option value="PROCESSING">Start processing</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "PROCESSING" && <><option value="PROCESSING">Processing</option><option value="COMPLETED">Mark completed</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "COMPLETED" && <option value="COMPLETED">Completed</option>}</select><button className="button button-outline button-small" type="submit">Update</button></form></div> : <span className="manager-order-cancelled">Stock released</span>}
-              {!paid && order.status !== "CANCELLED" && <form action={confirmManualPayment} className="manager-payment-form"><strong>Set actual prices, delivery, and record payment</strong>{order.fulfillments.flatMap((sellerOrder) => sellerOrder.items).map((item) => <label key={item.id}>{item.productNameSnapshot} × {item.quantity}<span><input type="hidden" name="orderItemId" value={item.id} /><input name="orderItemPrice" type="number" min="0.01" step="0.01" required defaultValue={(item.unitPriceAmount / 100).toFixed(2)} aria-label={`Final unit price for ${item.productNameSnapshot}`} /> USD each</span></label>)}<label>Delivery fee<input name="deliveryFee" type="number" min="0" step="0.01" required defaultValue={(order.deliveryFeeAmount / 100).toFixed(2)} /></label><input type="hidden" name="orderId" value={order.id} /><button className="button button-outline button-small" type="submit">Record payment received</button></form>}
+              {!paid && order.status !== "CANCELLED" && <form action={confirmManualPayment} className="manager-payment-form"><strong>Set actual prices, delivery, and record payment</strong>{order.fulfillments.flatMap((sellerOrder) => sellerOrder.items).map((item) => <label key={item.id}>{item.productNameSnapshot} × {item.quantity}<span><input type="hidden" name="orderItemId" value={item.id} /><input name="orderItemPrice" type="number" min="1" step="1" required defaultValue={Math.round((item.unitPriceAmount / 100) * exchangeRate.usdToRwf)} aria-label={`Final unit price for ${item.productNameSnapshot}`} /> RWF each</span></label>)}<label>Delivery fee (RWF)<input name="deliveryFee" type="number" min="0" step="1" required defaultValue={Math.round((order.deliveryFeeAmount / 100) * exchangeRate.usdToRwf)} /></label><input type="hidden" name="orderId" value={order.id} /><button className="button button-outline button-small" type="submit">Record payment received</button></form>}
             </article>;
           })}
           {orders.length === 0 && <p className="manager-empty">No customer orders yet.</p>}
