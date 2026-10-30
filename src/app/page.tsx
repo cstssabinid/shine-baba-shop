@@ -20,7 +20,9 @@ const highlights = [
 export default function HomePage() {
   const { locale, t } = usePreferences();
   const { products, categories } = useCart();
-  const homeProducts = products;
+  const homeProducts = [...products].sort(
+    (left, right) => Number(right.badge === "Featured") - Number(left.badge === "Featured"),
+  );
   const heroProduct = products[0] ? localizeProduct(products[0], locale) : null;
 
   return (
