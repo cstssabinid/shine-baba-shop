@@ -118,7 +118,7 @@ export function CheckoutPageContent({ profile }: { profile: CheckoutDefaults }) 
           <div className="summary-row"><span>{t("Delivery")}</span><span>{t("To be confirmed")}</span></div>
           <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} rwfAmount={subtotalRwf} /></div>
           <p className="summary-note">{t("Displayed prices remain random placeholders. The shop will confirm the amount before payment.")}</p>
-          <Link className="text-link" href="/cart">â† {t("Back to your bag")}</Link>
+          <Link className="text-link" href="/cart"><span aria-hidden="true">←</span> {t("Back to your bag")}</Link>
         </aside>
       </section>
     </main>
