@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { PreferencesProvider } from "@/components/preferences-provider";
 import { ShopIntroAnimation } from "@/components/shop-intro-animation";
+import { getUsdToRwfRate } from "@/lib/exchange-rate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -33,12 +34,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const exchangeRate = await getUsdToRwfRate();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
         <ShopIntroAnimation />
-        <PreferencesProvider>
+        <PreferencesProvider exchangeRate={exchangeRate}>
           <CartProvider>
             <SiteHeader />
             {children}

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { usePreferences } from "@/components/preferences-provider";
+import { formatRwf } from "@/lib/format";
 
 const socialLinks = [
   { label: "TikTok", href: "https://www.tiktok.com/@shine_baba_shob" },
@@ -12,7 +13,7 @@ const socialLinks = [
 ];
 
 export function SiteFooter() {
-  const { t } = usePreferences();
+  const { t, exchangeRate } = usePreferences();
   return (
     <footer className="site-footer">
       <div className="container footer-main">
@@ -53,6 +54,11 @@ export function SiteFooter() {
           <p className="footer-title footer-payment-title">{t("Partner Studio")}</p>
           <a href="https://berwaphotohub.vercel.app/" target="_blank" rel="noreferrer">Berwa Photo Hub <span aria-hidden="true">↗</span></a>
         </div>
+      </div>
+      <div className="container footer-exchange-note">
+        {exchangeRate.source === "BNR"
+          ? <>{t("RWF amounts use the daily National Bank of Rwanda reference rate.")} 1 USD = {formatRwf(exchangeRate.usdToRwf)} · {t("Rate dated")} {exchangeRate.asOf ?? t("latest available")}</>
+          : <>{t("Live exchange rate unavailable; using an estimate.")} 1 USD = {formatRwf(exchangeRate.usdToRwf)}</>}
       </div>
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} Shine Baba Shop</span>

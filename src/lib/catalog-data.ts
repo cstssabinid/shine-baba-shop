@@ -33,7 +33,7 @@ export async function getPublicCatalog() {
     return [{
       slug: record.slug,
       name: record.name,
-      category: record.category?.name ?? "Other",
+      category: sample?.category ?? sampleCategories.find((category) => category.name === record.category?.name)?.name ?? "Other Groceries",
       price: firstVariant.priceAmount / 100,
       description: record.description,
       detail: sample?.detail ?? record.description,
@@ -59,12 +59,11 @@ export async function getPublicCatalog() {
     }];
   });
 
-  const categories: CatalogCategory[] = storedCategories
-    .filter((category) => products.some((product) => product.category === category.name))
-    .map((category) => {
-      const sample = sampleCategories.find((item) => item.name === category.name);
-      return { id: category.id, name: category.name, slug: category.slug, color: sample?.color ?? "#f1dfcd", emoji: sample?.emoji ?? "✦" };
-    });
+  const categories: CatalogCategory[] = sampleCategories.map((sample) => {
+    const stored = storedCategories.find((category) => category.name === sample.name);
+    const slug = stored?.slug ?? sample.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return { id: stored?.id ?? slug, name: sample.name, slug, color: sample.color, emoji: sample.emoji };
+  });
 
   return { products, categories };
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { hasManagerSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
+import { categories as catalogCategories } from "@/lib/catalog";
 
 async function requireManager() {
   if (!await hasManagerSession()) redirect("/admin?error=login");
@@ -42,6 +43,8 @@ function categoryName(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim().slice(0, 60) : "";
 }
 
+const validCategoryNames = new Set(catalogCategories.map((category) => category.name));
+
 function refreshCatalog(slug?: string) {
   revalidatePath("/");
   revalidatePath("/products");
@@ -62,7 +65,7 @@ export async function saveProduct(formData: FormData) {
   const statusValue = String(formData.get("status") ?? "DRAFT");
   const status = ["ACTIVE", "DRAFT", "ARCHIVED"].includes(statusValue) ? statusValue : "DRAFT";
   const featured = formData.get("featured") === "true";
-  if (!name || !description || !image || !category || !slugify(category)) redirect("/admin?error=product-fields");
+  if (!name || !description || !image || !validCategoryNames.has(category) || !slugify(category)) redirect("/admin?error=product-fields");
 
   const productId = typeof id === "string" && id ? id : null;
   if (!productId) {

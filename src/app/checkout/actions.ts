@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUsdToRwfRate } from "@/lib/exchange-rate";
+import { formatRwf, formatUsd } from "@/lib/format";
 
 type SubmittedLine = { slug: string; option?: string; quantity: number };
 const paymentMethods = { mtn: "MTN_MOBILE_MONEY", airtel: "AIRTEL_MONEY", visa: "VISA", mastercard: "MASTERCARD" } as const;
@@ -174,17 +176,23 @@ async function createOrder(formData: FormData, channel: "website" | "whatsapp") 
   revalidatePath("/");
   revalidatePath("/admin");
   if (channel === "whatsapp") {
+    const exchangeRate = await getUsdToRwfRate();
     const itemLines = orderDetails.items.map((item) => {
       const option = item.option ? ` (${item.option})` : "";
-      return `â€¢ ${item.productName}${option} Ã— ${item.quantity} â€” $${(item.lineTotalAmount / 100).toFixed(2)}`;
+      const usdTotal = item.lineTotalAmount / 100;
+      return `- ${item.productName}${option} x ${item.quantity}: ${formatRwf(usdTotal * exchangeRate.usdToRwf)} (${formatUsd(usdTotal)})`;
     });
+    const rateNote = exchangeRate.source === "BNR"
+      ? `Indicative rate: 1 USD = ${formatRwf(exchangeRate.usdToRwf)} (BNR reference, ${exchangeRate.asOf ?? "latest available"}).`
+      : "Indicative rate: live rate unavailable; RWF amounts use an estimate. The shop will confirm the final amount.";
     const message = [
       "Hello Shine Baba Shop, I placed an order request.",
       `Order: ${orderDetails.orderNumber}`,
       "",
       ...itemLines,
       "",
-      `Estimated subtotal: $${(orderDetails.subtotalAmount / 100).toFixed(2)} USD`,
+      `Estimated subtotal: ${formatRwf(orderDetails.subtotalAmount / 100 * exchangeRate.usdToRwf)} (${formatUsd(orderDetails.subtotalAmount / 100)})`,
+      rateNote,
       `Customer: ${name}`,
       `Phone: ${phone}`,
       `Delivery area: ${sector}, ${district}`,

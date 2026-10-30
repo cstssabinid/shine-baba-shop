@@ -13,10 +13,12 @@ const prisma = new PrismaClient({
 });
 
 const categoryTranslations: Record<string, { fr: string; rw: string }> = {
-  Fragrance: { fr: "Parfums", rw: "Impumuro" },
-  "Skin Care": { fr: "Soins de la peau", rw: "Kwitaho uruhu" },
-  "Body Care": { fr: "Soins du corps", rw: "Kwitaho umubiri" },
-  "Bath & Soap": { fr: "Bain et savons", rw: "Kwiyuhagira n'isabune" },
+  "Body Oil": { fr: "Huile corporelle", rw: "Amavuta yo kwisiga" },
+  Bags: { fr: "Sacs", rw: "Imifuka" },
+  Shoes: { fr: "Chaussures", rw: "Inkweto" },
+  Clothes: { fr: "Vêtements", rw: "Imyambaro" },
+  Wigs: { fr: "Perruques", rw: "Ama-perike" },
+  "Other Groceries": { fr: "Autres produits", rw: "Ibindi bicuruzwa" },
 };
 
 function categorySlug(name: string) {
@@ -70,7 +72,7 @@ async function seed() {
     const slug = categorySlug(category.name);
     await prisma.category.upsert({
       where: { slug },
-      update: {},
+      update: { name: category.name, sortOrder, translations: categoryTranslations[category.name] ?? {} },
       create: {
         name: category.name,
         slug,
@@ -85,7 +87,7 @@ async function seed() {
     const translations = productTranslations(product.slug);
     const storedProduct = await prisma.product.upsert({
       where: { slug: product.slug },
-      update: {},
+      update: { category: { connect: { slug: productCategorySlug } } },
       create: {
         name: product.name,
         slug: product.slug,

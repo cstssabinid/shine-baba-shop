@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/components/cart-provider";
 import { usePreferences } from "@/components/preferences-provider";
-import { formatUsd } from "@/lib/format";
+import { PriceDisplay } from "@/components/price-display";
 import { localizeOption, localizeProduct } from "@/lib/i18n";
 import { submitOrder, submitOrderViaWhatsApp } from "@/app/checkout/actions";
 
@@ -103,12 +103,12 @@ export function CheckoutPageContent({ profile }: { profile: CheckoutDefaults }) 
               const product = localizeProduct(sourceProduct, locale);
               const variant = sourceProduct.variants?.find((entry) => entry.label === (line.option ?? "Default")) ?? sourceProduct.variants?.[0];
               const price = variant?.price ?? sourceProduct.price;
-              return <div className="checkout-item" key={line.slug + "::" + (line.option ?? "")}><span>{product.name}{line.option ? " Â· " + localizeOption(sourceProduct, line.option, locale) : ""} <b>Ã— {line.quantity}</b></span><strong>{formatUsd(price * line.quantity)}</strong></div>;
+              return <div className="checkout-item" key={line.slug + "::" + (line.option ?? "")}><span>{product.name}{line.option ? " Â· " + localizeOption(sourceProduct, line.option, locale) : ""} <b>Ã— {line.quantity}</b></span><PriceDisplay usdAmount={price * line.quantity} /></div>;
             })}
           </div>
-          <div className="summary-row"><span>{t("Subtotal")}</span><strong>{formatUsd(subtotal)}</strong></div>
+          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} /></div>
           <div className="summary-row"><span>{t("Delivery")}</span><span>{t("To be confirmed")}</span></div>
-          <div className="summary-total"><span>{t("Estimated total")}</span><strong>{formatUsd(subtotal)}</strong></div>
+          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} /></div>
           <p className="summary-note">{t("Displayed prices remain random placeholders. The shop will confirm the amount before payment.")}</p>
           <Link className="text-link" href="/cart">â† {t("Back to your bag")}</Link>
         </aside>

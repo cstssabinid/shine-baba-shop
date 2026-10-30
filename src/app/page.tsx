@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/components/cart-provider";
-import { formatUsd } from "@/lib/format";
+import { PriceDisplay } from "@/components/price-display";
 import { ProductCard } from "@/components/product-card";
 import { ProductArt } from "@/components/product-art";
 import { Icon } from "@/components/icons";
@@ -58,7 +58,7 @@ export default function HomePage() {
             </div>
             <div className="hero-float-card hero-float-bottom">
               {heroProduct && <><span className="hero-mini-art"><ProductArt product={products[0]} compact /></span>
-              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><b>{formatUsd(heroProduct.price)}</b></span></>}
+              <span><small>{t("Shine pick")}</small><strong>{heroProduct.name}</strong><PriceDisplay usdAmount={heroProduct.price} className="hero-product-price" /></span></>}
             </div>
             <span className="hero-sunburst">✳</span>
           </div>

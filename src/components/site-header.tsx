@@ -8,10 +8,12 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { usePreferences } from "@/components/preferences-provider";
 import { SitePreferences } from "@/components/site-preferences";
+import { localizeCategory } from "@/lib/i18n";
+import { categories } from "@/lib/catalog";
 
 export function SiteHeader() {
   const { itemCount } = useCart();
-  const { t } = usePreferences();
+  const { locale, t } = usePreferences();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -74,17 +76,11 @@ export function SiteHeader() {
         <div className={`header-nav-wrap${mobileMenuOpen ? " mobile-nav-open" : ""}`}>
           <nav className="container main-nav" id="mobile-main-navigation" aria-label={t("Main navigation")} onClick={() => setMobileMenuOpen(false)}>
             <Link href="/products">{t("Shop all")}</Link>
-            <Link href="/products?category=Fashion">{t("Fashion")}</Link>
-            <Link href="/products?category=Home%20%26%20Living">{t("Home & Living")}</Link>
-            <Link href="/products?category=Electronics">{t("Electronics")}</Link>
-            <Link href="/products?category=Beauty">{t("Beauty")}</Link>
+            {categories.map((category) => <Link key={category.name} href={"/products?category=" + encodeURIComponent(category.name)}>{localizeCategory(category.name, locale)}</Link>)}
             <Link href="/shops">{t("Our shop")}</Link>
           </nav>
         </div>
       </header>
-      <div className="preview-note">
-        <div className="container"><span className="preview-dot" /> {t("Current products pictured; placeholder prices are shown.")}</div>
-      </div>
       <MobileBottomNav />
       <a className="mobile-help-tab" href="https://wa.me/250790384123" target="_blank" rel="noreferrer" aria-label={t("Chat with our team on WhatsApp")}>
         <span className="mobile-help-icon"><Icon name="whatsapp" size={19} /></span><span>{t("Help")}</span>

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCart } from "@/components/cart-provider";
 import { ProductArt } from "@/components/product-art";
-import { formatUsd } from "@/lib/format";
-import { localizeOption, localizeProduct } from "@/lib/i18n";
+import { PriceDisplay } from "@/components/price-display";
+import { localizeCategory, localizeOption, localizeProduct } from "@/lib/i18n";
 import { usePreferences } from "@/components/preferences-provider";
 
 export default function CartPage() {
@@ -47,10 +47,10 @@ export default function CartPage() {
               <article className="cart-line" key={line.slug + "::" + (line.option ?? "")}>
                 <Link className="cart-line-art" href={"/products/" + product.slug}><ProductArt product={product} compact /></Link>
                 <div className="cart-line-copy">
-                  <p className="eyebrow">{product.category}</p>
+                  <p className="eyebrow">{localizeCategory(sourceProduct.category, locale)}</p>
                   <Link href={"/products/" + product.slug} className="cart-line-title">{product.name}</Link>
                   {line.option && <p className="cart-line-option">{product.options?.label}: {localizeOption(sourceProduct, line.option, locale)}</p>}
-                  <p className="cart-line-price">{formatUsd(linePrice)}</p>
+                  <PriceDisplay usdAmount={linePrice} className="cart-line-price" />
                   {variant?.stockQuantity === null && <p className="cart-line-option">{t("Stock not set; this item cannot be ordered yet.")}</p>}
                   {variant && variant.stockQuantity !== null && line.quantity > variant.stockQuantity && <p className="cart-line-option">{t("Only")} {variant.stockQuantity} {t("available")}</p>}
                   <button className="remove-link" onClick={() => removeItem(line.slug, line.option)} type="button">{t("Remove")}</button>
@@ -60,7 +60,7 @@ export default function CartPage() {
                   <span>{line.quantity}</span>
                   <button type="button" aria-label={t("Increase quantity")} onClick={() => setQuantity(line.slug, line.option, line.quantity + 1)}>+</button>
                 </div>
-                <strong className="cart-line-total">{formatUsd(linePrice * line.quantity)}</strong>
+                <PriceDisplay usdAmount={linePrice * line.quantity} className="cart-line-total" />
               </article>
             );
           })}
@@ -69,9 +69,9 @@ export default function CartPage() {
         <aside className="cart-summary">
           <p className="eyebrow">{t("Order summary")}</p>
           <h2>{t("A good choice.")}</h2>
-          <div className="summary-row"><span>{t("Subtotal")}</span><strong>{formatUsd(subtotal)}</strong></div>
+          <div className="summary-row"><span>{t("Subtotal")}</span><PriceDisplay usdAmount={subtotal} /></div>
           <div className="summary-row"><span>{t("Delivery")}</span><span>{t("To be confirmed")}</span></div>
-          <div className="summary-total"><span>{t("Estimated total")}</span><strong>{formatUsd(subtotal)}</strong></div>
+          <div className="summary-total"><span>{t("Estimated total")}</span><PriceDisplay usdAmount={subtotal} /></div>
           <p className="summary-note">{t("Delivery fee and payment are confirmed with the shop. Order requests reserve counted stock but do not collect payment online.")}</p>
           <Link className="button button-dark button-full" href="/checkout">{t("Continue to checkout")} <span>↗</span></Link>
           <div className="cart-payment-note"><span>MoMo</span><span>Airtel</span><span>VISA</span><span>Mastercard</span></div>

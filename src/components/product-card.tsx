@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Product } from "@/lib/catalog";
-import { formatUsd } from "@/lib/format";
+import { PriceDisplay } from "@/components/price-display";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductArt } from "@/components/product-art";
 import { usePreferences } from "@/components/preferences-provider";
@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="eyebrow product-category">{localizeCategory(product.category, locale)}</p>
         <Link className="product-card-title" href={"/products/" + item.slug}>{item.name}</Link>
         <div className="product-card-bottom">
-          <strong>{formatUsd(item.price)}</strong>
+          <PriceDisplay usdAmount={item.price} />
           {item.options
             ? <Link href={"/products/" + item.slug} className="button button-outline button-small">{t("Choose")}</Link>
             : <AddToCartButton slug={item.slug} label={t("Add")} className="button-small" disabled={!product.variants?.[0] || product.variants[0].stockQuantity === null || product.variants[0].stockQuantity < 1} />}

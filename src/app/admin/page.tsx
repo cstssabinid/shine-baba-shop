@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { formatUsd } from "@/lib/format";
+import { PriceDisplay } from "@/components/price-display";
 import { hasManagerSession, isManagerLoginConfigured } from "@/lib/admin-auth";
+import { categories as catalogCategories, products as catalogProducts } from "@/lib/catalog";
 import { prisma } from "@/lib/prisma";
 import { managerLogout } from "@/app/admin/auth-actions";
 import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, saveProduct, updateOrderStatus } from "@/app/admin/actions";
@@ -32,6 +33,12 @@ const errors: Record<string, string> = {
   "order-update": "The order could not be updated. Paid orders need a refund before cancellation.",
 };
 
+function getProductCategoryValue(slug: string, currentCategory: string | null) {
+  const sampleCategory = catalogProducts.find((product) => product.slug === slug)?.category;
+  if (sampleCategory) return sampleCategory;
+  return catalogCategories.find((category) => category.name === currentCategory)?.name ?? "Other Groceries";
+}
+
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const params = await searchParams;
   if (!await hasManagerSession()) {
@@ -43,9 +50,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const [products, categories, orders, recentMovements] = await Promise.all([
+  const [products, orders, recentMovements] = await Promise.all([
     prisma.product.findMany({ include: { category: true, images: { orderBy: { sortOrder: "asc" } }, variants: { orderBy: { createdAt: "asc" } } }, orderBy: [{ status: "asc" }, { updatedAt: "desc" }] }),
-    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.order.findMany({ include: { user: true, address: true, fulfillments: { include: { items: true } }, payments: true }, orderBy: { createdAt: "desc" }, take: 30 }),
     prisma.inventoryMovement.findMany({ include: { variant: { include: { product: true } } }, orderBy: { createdAt: "desc" }, take: 18 }),
   ]);
@@ -76,7 +82,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <form action={saveProduct} className="manager-form manager-product-form">
           <label>Product name<input name="name" required maxLength={120} /></label>
           <label>URL slug<input name="slug" placeholder="Generated from product name if blank" maxLength={70} /></label>
-          <label>Category<input name="category" list="manager-categories" required placeholder="e.g. Body Care" maxLength={60} /><datalist id="manager-categories">{categories.map((category) => <option key={category.id} value={category.name} />)}</datalist></label>
+          <label>Category<select name="category" required defaultValue=""><option value="" disabled>Select a category</option>{catalogCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}</select></label>
           <AdminImageUpload />
           <label>USD price<input name="price" type="number" min="0.01" step="0.01" required placeholder="12.53" /><small>Marked as a placeholder price, as requested.</small></label>
           <label>Starting stock<input name="stock" type="number" min="0" step="1" placeholder="Leave blank until counted" /><small>Blank means stock is not yet counted and the item cannot be ordered.</small></label>
@@ -92,11 +98,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="manager-product-list">
           {products.map((product) => (
             <details className="manager-product" key={product.id}>
-              <summary><span><strong>{product.name}</strong><small>{product.category?.name ?? "Uncategorized"} · {product.slug}</small></span><span className={`manager-status ${product.status.toLowerCase()}`}>{product.status}</span><span className="manager-summary-stock">{product.variants.map((variant) => variant.stockQuantity === null ? "Not counted" : `${variant.label}: ${variant.stockQuantity}`).join(" · ") || "No active variants"}</span></summary>
+              <summary><span><strong>{product.name}</strong><small>{getProductCategoryValue(product.slug, product.category?.name ?? null)} · {product.slug}</small></span><span className={`manager-status ${product.status.toLowerCase()}`}>{product.status}</span><span className="manager-summary-stock">{product.variants.map((variant) => variant.stockQuantity === null ? "Not counted" : `${variant.label}: ${variant.stockQuantity}`).join(" · ") || "No active variants"}</span></summary>
               <form action={saveProduct} className="manager-form manager-product-form manager-edit-form">
                 <input type="hidden" name="productId" value={product.id} />
                 <label>Product name<input name="name" required defaultValue={product.name} maxLength={120} /></label>
-                <label>Category<input name="category" list="manager-categories" required defaultValue={product.category?.name ?? ""} maxLength={60} /></label>
+                <label>Category<select name="category" required defaultValue={getProductCategoryValue(product.slug, product.category?.name ?? null)}>{catalogCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}</select></label>
                 <AdminImageUpload defaultValue={product.images[0]?.url ?? ""} />
                 <label>Status<select name="status" defaultValue={product.status}><option value="DRAFT">Draft</option><option value="ACTIVE">Live on storefront</option><option value="ARCHIVED">Archived</option></select></label>
                 <label>Featured<select name="featured" defaultValue={String(product.isFeatured)}><option value="false">No</option><option value="true">Yes</option></select></label>
@@ -132,7 +138,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             return <article className="manager-order" key={order.id}>
               <div><strong>{order.orderNumber}</strong><span className={`manager-status ${order.status.toLowerCase()}`}>{order.status}</span><small>{order.createdAt.toLocaleString("en-RW")}</small></div>
               <div><strong>{order.user.fullName}</strong><small>{order.user.phone ?? "No phone"}</small><small>{[order.address?.district, order.address?.sector, order.address?.directions].filter(Boolean).join(" · ")}</small></div>
-              <div><strong>{itemCount} item{itemCount === 1 ? "" : "s"}</strong><small>{formatUsd(order.totalAmount / 100)} estimated · {paid ? "Paid" : "Payment pending"}</small></div>
+              <div><strong>{itemCount} item{itemCount === 1 ? "" : "s"}</strong><PriceDisplay usdAmount={order.totalAmount / 100} className="manager-order-price" /><small>{paid ? "Paid" : "Payment pending"}</small></div>
               {order.status !== "CANCELLED" ? <div className="manager-order-actions"><form action={updateOrderStatus} className="manager-order-status"><input type="hidden" name="orderId" value={order.id} /><select name="status" defaultValue={order.status}>{order.status === "PENDING" && <><option value="PENDING">Pending</option><option value="CONFIRMED">Confirm order</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "CONFIRMED" && <><option value="CONFIRMED">Confirmed</option><option value="PROCESSING">Start processing</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "PROCESSING" && <><option value="PROCESSING">Processing</option><option value="COMPLETED">Mark completed</option><option value="CANCELLED" disabled={paid}>Cancel & release stock</option></>}{order.status === "COMPLETED" && <option value="COMPLETED">Completed</option>}</select><button className="button button-outline button-small" type="submit">Update</button></form></div> : <span className="manager-order-cancelled">Stock released</span>}
               {!paid && order.status !== "CANCELLED" && <form action={confirmManualPayment} className="manager-payment-form"><strong>Set actual prices, delivery, and record payment</strong>{order.fulfillments.flatMap((sellerOrder) => sellerOrder.items).map((item) => <label key={item.id}>{item.productNameSnapshot} × {item.quantity}<span><input type="hidden" name="orderItemId" value={item.id} /><input name="orderItemPrice" type="number" min="0.01" step="0.01" required defaultValue={(item.unitPriceAmount / 100).toFixed(2)} aria-label={`Final unit price for ${item.productNameSnapshot}`} /> USD each</span></label>)}<label>Delivery fee<input name="deliveryFee" type="number" min="0" step="0.01" required defaultValue={(order.deliveryFeeAmount / 100).toFixed(2)} /></label><input type="hidden" name="orderId" value={order.id} /><button className="button button-outline button-small" type="submit">Record payment received</button></form>}
             </article>;

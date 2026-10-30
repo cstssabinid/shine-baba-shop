@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { translate, type Locale, type Theme } from "@/lib/i18n";
+import type { ExchangeRateSnapshot } from "@/lib/exchange-rate";
 
 const STORAGE_KEY = "shine-baba-shop-preferences-v1";
 
@@ -11,11 +12,12 @@ type Preferences = {
   setLocale: (locale: Locale) => void;
   toggleTheme: () => void;
   t: (phrase: string) => string;
+  exchangeRate: ExchangeRateSnapshot;
 };
 
 const PreferencesContext = createContext<Preferences | null>(null);
 
-export function PreferencesProvider({ children }: { children: ReactNode }) {
+export function PreferencesProvider({ children, exchangeRate }: { children: ReactNode; exchangeRate: ExchangeRateSnapshot }) {
   const [locale, setLocaleState] = useState<Locale>("en");
   const [theme, setTheme] = useState<Theme>("light");
   const [ready, setReady] = useState(false);
@@ -50,7 +52,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback((next: Locale) => setLocaleState(next), []);
   const toggleTheme = useCallback(() => setTheme((current) => current === "light" ? "dark" : "light"), []);
-  const value = useMemo(() => ({ locale, theme, setLocale, toggleTheme, t: (phrase: string) => translate(locale, phrase) }), [locale, theme, setLocale, toggleTheme]);
+  const value = useMemo(() => ({ locale, theme, setLocale, toggleTheme, t: (phrase: string) => translate(locale, phrase), exchangeRate }), [locale, theme, setLocale, toggleTheme, exchangeRate]);
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
