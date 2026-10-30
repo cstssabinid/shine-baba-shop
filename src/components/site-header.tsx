@@ -11,9 +11,10 @@ import { SitePreferences } from "@/components/site-preferences";
 import { localizeCategory } from "@/lib/i18n";
 import { categories } from "@/lib/catalog";
 
-export function SiteHeader() {
+export function SiteHeader({ customerFirstName }: { customerFirstName: string | null }) {
   const { itemCount } = useCart();
   const { locale, t } = usePreferences();
+  const accountLabel = customerFirstName || t("My account");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -56,7 +57,7 @@ export function SiteHeader() {
           <div className="header-actions">
             <Link className="header-account" href="/account">
               <span className="header-action-icon"><span>♙</span></span>
-              <span className="header-action-label">{t("My account")}</span>
+              <span className="header-action-label">{accountLabel}</span>
             </Link>
             <Link className="header-cart" href="/cart" aria-label={t("Shopping bag") + ", " + itemCount + " " + t("items")}>
               <span className="header-action-icon"><Icon name="bag" size={21} /></span>
@@ -81,7 +82,7 @@ export function SiteHeader() {
           </nav>
         </div>
       </header>
-      <MobileBottomNav />
+      <MobileBottomNav accountLabel={accountLabel} />
       <a className="mobile-help-tab" href="https://wa.me/250790384123" target="_blank" rel="noreferrer" aria-label={t("Chat with our team on WhatsApp")}>
         <span className="mobile-help-icon"><Icon name="whatsapp" size={19} /></span><span>{t("Help")}</span>
       </a>
@@ -89,7 +90,7 @@ export function SiteHeader() {
   );
 }
 
-function MobileBottomNav() {
+function MobileBottomNav({ accountLabel }: { accountLabel: string }) {
   const { t } = usePreferences();
   const { itemCount } = useCart();
   const pathname = usePathname();
@@ -100,7 +101,7 @@ function MobileBottomNav() {
       <Link href="/products" aria-current={pathname.startsWith("/products") ? "page" : undefined} className={`mobile-bottom-link${activeClass("/products")}`}><Icon name="box" size={23} /><span>{t("Products")}</span></Link>
       <Link href="/shops" aria-current={pathname.startsWith("/shops") ? "page" : undefined} className={`mobile-bottom-link${activeClass("/shops")}`}><Icon name="store" size={23} /><span>{t("Stores")}</span></Link>
       <Link href="/cart" aria-current={pathname === "/cart" ? "page" : undefined} className={`mobile-bottom-link${activeClass("/cart")}`}><Icon name="bag" size={23} /><span>{t("Cart")}</span>{itemCount > 0 && <span className="mobile-nav-count">{itemCount}</span>}</Link>
-      <Link href="/account" aria-current={pathname.startsWith("/account") ? "page" : undefined} className={`mobile-bottom-link${activeClass("/account")}`}><Icon name="user" size={23} /><span>{t("My account")}</span></Link>
+      <Link href="/account" aria-current={pathname.startsWith("/account") ? "page" : undefined} className={`mobile-bottom-link${activeClass("/account")}`}><Icon name="user" size={23} /><span>{accountLabel}</span></Link>
     </nav>
   );
 }

@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { CartProvider } from "@/components/cart-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { PreferencesProvider } from "@/components/preferences-provider";
 import { ShopIntroAnimation } from "@/components/shop-intro-animation";
+import { auth } from "@/lib/auth";
 import { getUsdToRwfRate } from "@/lib/exchange-rate";
 import "./globals.css";
 
@@ -35,7 +37,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const exchangeRate = await getUsdToRwfRate();
+  const requestHeaders = await headers();
+  const [exchangeRate, session] = await Promise.all([
+    getUsdToRwfRate(),
+    auth.api.getSession({ headers: requestHeaders }),
+  ]);
+  const customerFirstName = session?.user.name?.trim().split(/\s+/)[0] || null;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -43,7 +50,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ShopIntroAnimation />
         <PreferencesProvider exchangeRate={exchangeRate}>
           <CartProvider>
-            <SiteHeader />
+            <SiteHeader customerFirstName={customerFirstName} />
             {children}
             <SiteFooter />
           </CartProvider>
