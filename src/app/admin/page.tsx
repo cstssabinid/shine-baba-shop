@@ -7,7 +7,6 @@ import { managerLogout } from "@/app/admin/auth-actions";
 import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, saveProduct, updateOrderStatus } from "@/app/admin/actions";
 import { AdminImageUpload } from "@/components/admin-image-upload";
 import { AdminManagerLogin } from "@/components/admin-manager-login";
-import { getManagerPhoneHint } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +21,8 @@ const messages: Record<string, string> = {
 };
 
 const errors: Record<string, string> = {
-  "not-configured": "Manager phone verification is not configured yet. Add the manager phone, session secret, and SMS provider settings.",
-  login: "The manager verification code was not accepted.",
+  "not-configured": "Manager password login is not configured yet. Add ADMIN_PASSWORD and ADMIN_SESSION_SECRET to the environment settings.",
+  login: "The manager password was not accepted.",
   "product-fields": "Check the product fields. Price must be a USD amount and stock must be a whole number or blank when first added.",
   "save-product": "Product could not be saved. Check that its slug and variant labels are unique.",
   "variant-fields": "Check the variant name, price, and stock quantity.",
@@ -39,7 +38,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     return (
       <AdminManagerLogin
         configured={isManagerLoginConfigured()}
-        phoneHint={getManagerPhoneHint()}
         initialError={params.error ? errors[params.error] ?? "Manager sign in failed." : undefined}
       />
     );

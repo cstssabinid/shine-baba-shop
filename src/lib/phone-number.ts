@@ -8,7 +8,7 @@ export function normalizeRwandaPhone(value: string): string | null {
   return null;
 }
 
-export function maskPhoneNumber(value: string): string {
-  if (value.length < 8) return value;
-  return `${value.slice(0, 6)}••••${value.slice(-2)}`;
+/** Stable internal Better Auth identifier for accounts that sign in by phone. */
+export function customerPhoneAuthEmail(phoneNumber: string): string {
+  return `phone-${phoneNumber.replace(/\D/g, "")}@accounts.shinebabashop.com`;
 }

@@ -1,7 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { normalizeRwandaPhone, maskPhoneNumber } from "@/lib/phone-number";
-import { isSmsConfigured } from "@/lib/sms";
 
 const cookieName = "sbs_manager_session";
 const sessionLifetimeSeconds = 60 * 60 * 12;
@@ -21,16 +19,13 @@ function constantTimeEqual(left: string, right: string) {
 }
 
 export function isManagerLoginConfigured() {
-  return Boolean(getManagerPhoneNumber() && sessionSecret().length >= 32 && isSmsConfigured());
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  return password.length >= 16 && sessionSecret().length >= 32;
 }
 
-export function getManagerPhoneNumber() {
-  return normalizeRwandaPhone(process.env.ADMIN_PHONE_NUMBER ?? "");
-}
-
-export function getManagerPhoneHint() {
-  const phoneNumber = getManagerPhoneNumber();
-  return phoneNumber ? maskPhoneNumber(phoneNumber) : null;
+export function validateManagerPassword(candidate: string) {
+  const expected = process.env.ADMIN_PASSWORD ?? "";
+  return expected.length >= 16 && constantTimeEqual(candidate, expected);
 }
 
 export async function hasManagerSession() {
