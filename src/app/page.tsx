@@ -20,7 +20,7 @@ const highlights = [
 export default function HomePage() {
   const { locale, t } = usePreferences();
   const { products, categories } = useCart();
-  const featured = products.slice(0, 4);
+  const homeProducts = products;
   const heroProduct = products[0] ? localizeProduct(products[0], locale) : null;
 
   return (
@@ -102,7 +102,7 @@ export default function HomePage() {
             <Link className="text-link" href="/products">{t("Shop all pieces")} <span>↗</span></Link>
           </div>
           <div className="product-grid">
-            {featured.map((product) => <ProductCard key={product.slug} product={product} />)}
+            {homeProducts.map((product) => <ProductCard key={product.slug} product={product} />)}
           </div>
         </div>
       </section>
