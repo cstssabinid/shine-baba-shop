@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { Product } from "@/lib/catalog";
 import { PriceDisplay } from "@/components/price-display";
 import { localizeCategory, localizeProduct } from "@/lib/i18n";
@@ -53,13 +54,19 @@ export function ProductsContent({ initialQuery, initialCategory }: { initialQuer
   return <main className="page-main"><section className="page-hero"><div className="container"><p className="eyebrow">{t("The Shine Baba Shop edit")}</p><h1>{t("Find something ")}<em>{t("lovely.")}</em></h1><p>{t("Browse the live catalog from Shine Baba Shop in Kigali.")}</p></div></section><section className="section catalog-section"><div className="container"><ProductBrowser initialQuery={initialQuery} initialCategory={initialCategory} /><p className="catalog-footnote">{t("Stock counts update from the shop inventory. Prices are random USD placeholders until confirmed by the shop.")}</p></div></section></main>;
 }
 
+function ProductGallery({ product, images }: { product: Product; images: string[] }) {
+  const [selectedImage, setSelectedImage] = useState(images[0] ?? product.image);
+  return <div className="product-gallery"><div className="product-main-image"><ProductArt product={{ ...product, image: selectedImage }} sizes="(max-width: 760px) 100vw, 48vw" /></div><div className="gallery-thumbnails">{images.map((image, index) => <button className={`gallery-thumb${selectedImage === image ? " selected" : ""}`} type="button" key={`${image}-${index}`} aria-label={`Show product image ${index + 1}`} aria-pressed={selectedImage === image} onClick={() => setSelectedImage(image)}><ProductArt product={{ ...product, image }} compact /></button>)}</div></div>;
+}
+
 export function ProductDetailContent({ product: sourceProduct, related }: { product: Product; related: Product[] }) {
   const { locale, t } = usePreferences();
   const product = localizeProduct(sourceProduct, locale);
+  const galleryImages = product.images?.length ? product.images : product.image ? [product.image] : [];
   return (
     <main className="page-main product-detail-page">
       <div className="container breadcrumb"><Link href="/">{t("Home")}</Link><span>/</span><Link href="/products">{t("Shop")}</Link><span>/</span><span>{product.name}</span></div>
-      <section className="container product-detail-layout"><div className="product-gallery"><div className="product-main-image"><ProductArt product={product} sizes="(max-width: 760px) 100vw, 48vw" /></div><div className="gallery-thumbnails"><div className="gallery-thumb selected"><ProductArt product={product} compact /></div><div className="gallery-thumb gallery-thumb-alt" aria-hidden="true">✦</div><div className="gallery-thumb gallery-thumb-alt" aria-hidden="true">✳</div></div></div>
+      <section className="container product-detail-layout"><ProductGallery key={product.slug} product={product} images={galleryImages} />
         <div className="product-detail-copy"><p className="eyebrow">{localizeCategory(sourceProduct.category, locale)} <span className="detail-dot">•</span> {product.shop}</p><h1>{product.name}</h1><div className="detail-rating"><span>★★★★★</span><small>{t("Current stock")}</small></div><PriceDisplay usdAmount={product.price} rwfAmount={sourceProduct.priceRwf} className="detail-price" /><p className="detail-description">{product.description}</p><ProductDetailActions product={product} canonicalOptionValues={sourceProduct.options?.values} /><div className="detail-assurances"><div><span>⌂</span><p><strong>{t("Delivery from Kigali")}</strong><small>{t("We’ll confirm the delivery fee with your order.")}</small></p></div><div><span>↺</span><p><strong>{t("Friendly support")}</strong><small>{t("Contact us if you need help with a return.")}</small></p></div></div><p className="detail-preview-note">{t("Displayed prices are random USD placeholders and are not set per selected option.")}</p></div>
       </section>
       <section className="container detail-info-section"><div className="detail-info-tabs"><span className="selected">{t("Description")}</span><span>{t("Delivery & returns")}</span></div><p>{product.detail}</p><p className="detail-shop-note">{t("Sold by")} <strong>{product.shop}</strong> · <Link href="/shops/shine-baba-shop">{t("Visit shop")}</Link></p></section>

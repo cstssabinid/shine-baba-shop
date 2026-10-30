@@ -229,9 +229,9 @@ h1 em, h2 em { color: var(--orange); font-weight: 500; }
 .product-main-image .product-art { height: 100%; }
 .product-main-image .product-art-emoji { width: 190px; height: 190px; font-size: 96px; }
 .gallery-thumbnails { display: flex; gap: 10px; margin-top: 11px; }
-.gallery-thumb { display: grid; width: 66px; height: 66px; overflow: hidden; place-items: center; border: 1px solid var(--line); border-radius: 3px; background: #efe2d7; }
+.gallery-thumb { display: grid; width: 66px; height: 66px; overflow: hidden; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 3px; background: #efe2d7; cursor: pointer; }
 .gallery-thumb.selected { border: 2px solid var(--orange); }
-.gallery-thumb-alt { color: rgba(101,70,55,.38); font-family: var(--serif); font-size: 26px; }
+.gallery-thumb:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .product-detail-copy { padding-top: 19px; }
 .product-detail-copy > .eyebrow { margin-bottom: 13px; }
 .detail-dot { padding: 0 6px; color: #c7b4a9; }
@@ -295,6 +295,11 @@ h1 em, h2 em { color: var(--orange); font-weight: 500; }
 .manager-form input:focus, .manager-form select:focus, .manager-form textarea:focus, .manager-inline-actions input:focus, .manager-inline-actions select:focus, .manager-order-status select:focus { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(226,87,50,.1); }
 .manager-field-wide { grid-column: 1 / -1; }
 .manager-image-upload { display: grid; grid-column: 1 / -1; gap: 12px; }
+.manager-image-list { display: grid; gap: 10px; }
+.manager-image-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.manager-image-actions { display: grid; justify-items: start; gap: 8px; }
+.manager-remove-image { margin-bottom: 8px; }
+.manager-image-item .manager-image-preview-link { margin-top: 2px; }
 .manager-image-file { min-height: 44px !important; padding: 6px !important; border-style: dashed !important; background: #fffdfa !important; }
 .manager-image-upload-status { min-height: 12px; margin: -3px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .manager-image-upload-status[data-error="true"] { color: #a63f30; }

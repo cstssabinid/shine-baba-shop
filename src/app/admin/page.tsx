@@ -27,7 +27,7 @@ const messages: Record<string, string> = {
 const errors: Record<string, string> = {
   "not-configured": "Manager password login is not configured yet. Add ADMIN_PASSWORD and ADMIN_SESSION_SECRET to the environment settings.",
   login: "The manager password was not accepted.",
-  "product-fields": "Check the product fields. Price must be an RWF amount and stock must be a whole number or blank when first added.",
+  "product-fields": "Check the product fields. Add 1–8 valid images, enter an RWF price, and use a whole-number stock quantity or leave it blank.",
   "save-product": "Product could not be saved. Check that its slug and variant labels are unique.",
   "variant-fields": "Check the variant name, price, and stock quantity.",
   "variant-not-found": "That variant could not be found.",
@@ -108,7 +108,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <input type="hidden" name="productId" value={product.id} />
                 <label>Product name<input name="name" required defaultValue={product.name} maxLength={120} /></label>
                 <label>Category<select name="category" required defaultValue={getProductCategoryValue(product.slug, product.category?.name ?? null)}>{catalogCategories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}</select></label>
-                <AdminImageUpload defaultValue={product.images[0]?.url ?? ""} />
+                <AdminImageUpload defaultValues={product.images.map((image) => image.url)} />
                 <label>Status<select name="status" defaultValue={product.status}><option value="DRAFT">Draft</option><option value="ACTIVE">Live on storefront</option><option value="ARCHIVED">Archived</option></select></label>
                 <label>Featured<select name="featured" defaultValue={String(product.isFeatured)}><option value="false">No</option><option value="true">Yes</option></select></label>
                 <label className="manager-field-wide">Description<textarea name="description" required defaultValue={product.description} rows={3} maxLength={3000} /></label>

@@ -23,7 +23,8 @@ export async function getPublicCatalog() {
     const variants = record.variants;
     if (variants.length === 0) return [];
     const sample = sampleProducts.find((product) => product.slug === record.slug);
-    const image = record.images[0]?.url ?? sample?.image ?? "";
+    const images = record.images.length ? record.images.map((recordImage) => recordImage.url) : sample?.image ? [sample.image] : [];
+    const image = images[0] ?? "";
     const firstVariant = variants[0];
     const optionEntries = firstVariant.options && typeof firstVariant.options === "object" && !Array.isArray(firstVariant.options)
       ? Object.entries(firstVariant.options as Record<string, unknown>)
@@ -43,6 +44,7 @@ export async function getPublicCatalog() {
       color: sample?.color ?? "#f1dfcd",
       emoji: sample?.emoji ?? "✦",
       image,
+      images,
       stockQuantity: variants.every((variant) => variant.stockQuantity !== null)
         ? variants.reduce((sum, variant) => sum + (variant.stockQuantity ?? 0), 0)
         : null,

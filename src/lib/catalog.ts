@@ -11,6 +11,7 @@ export type Product = {
   color: string;
   emoji: string;
   image: string;
+  images?: string[];
   stockQuantity?: number | null;
   hasUncountedStock?: boolean;
   variants?: {

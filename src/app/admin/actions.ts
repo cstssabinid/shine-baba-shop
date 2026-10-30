@@ -47,6 +47,15 @@ function imageUrl(value: FormDataEntryValue | null) {
   }
 }
 
+function imageUrls(formData: FormData) {
+  const values = formData.getAll("images");
+  const submittedImages = values.length ? values : [formData.get("image")];
+  if (submittedImages.length < 1 || submittedImages.length > 8) return null;
+  const validated = submittedImages.map(imageUrl);
+  if (validated.some((image) => image === null)) return null;
+  return [...new Set(validated as string[])];
+}
+
 function categoryName(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim().slice(0, 60) : "";
 }
@@ -70,11 +79,11 @@ export async function saveProduct(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 120);
   const description = String(formData.get("description") ?? "").trim().slice(0, 3000);
   const category = categoryName(formData.get("category"));
-  const image = imageUrl(formData.get("image"));
+  const images = imageUrls(formData);
   const statusValue = String(formData.get("status") ?? "DRAFT");
   const status = ["ACTIVE", "DRAFT", "ARCHIVED"].includes(statusValue) ? statusValue : "DRAFT";
   const featured = formData.get("featured") === "true";
-  if (!name || !description || !image || !validCategoryNames.has(category) || !slugify(category)) redirect("/admin?error=product-fields");
+  if (!name || !description || !images?.length || !validCategoryNames.has(category) || !slugify(category)) redirect("/admin?error=product-fields");
 
   const productId = typeof id === "string" && id ? id : null;
   if (!productId) {
@@ -91,7 +100,7 @@ export async function saveProduct(formData: FormData) {
         const shop = await tx.shop.findUnique({ where: { slug: "shine-baba-shop" }, select: { id: true } });
         if (!shop) throw new Error("Shop is not seeded");
         const product = await tx.product.create({ data: { shopId: shop.id, categoryId: storedCategory.id, name, slug, description, status: status as "ACTIVE" | "DRAFT" | "ARCHIVED", isFeatured: featured } });
-        await tx.productImage.create({ data: { productId: product.id, url: image, altText: name, sortOrder: 0 } });
+        await tx.productImage.createMany({ data: images.map((url, sortOrder) => ({ productId: product.id, url, altText: name, sortOrder })) });
         const variant = await tx.productVariant.create({ data: { productId: product.id, label: "Default", sku: `${slug}-default-${randomBytes(3).toString("hex")}`, options: {}, currency: "USD", priceAmount, priceRwf, isPricePlaceholder: true, stockQuantity: openingStock } });
         if (openingStock !== undefined && openingStock > 0) await tx.inventoryMovement.create({ data: { variantId: variant.id, delta: openingStock, reason: "Opening stock set by manager" } });
       });
@@ -114,8 +123,8 @@ export async function saveProduct(formData: FormData) {
       const categorySlug = slugify(category);
       const storedCategory = await tx.category.upsert({ where: { slug: categorySlug }, update: { name: category }, create: { name: category, slug: categorySlug } });
       await tx.product.update({ where: { id: productId }, data: { name, description, categoryId: storedCategory.id, status: status as "ACTIVE" | "DRAFT" | "ARCHIVED", isFeatured: featured } });
-      if (existing.images[0]) await tx.productImage.update({ where: { id: existing.images[0].id }, data: { url: image, altText: name } });
-      else await tx.productImage.create({ data: { productId, url: image, altText: name, sortOrder: 0 } });
+      await tx.productImage.deleteMany({ where: { productId } });
+      await tx.productImage.createMany({ data: images.map((url, sortOrder) => ({ productId, url, altText: name, sortOrder })) });
 
       for (let index = 0; index < variantIds.length; index += 1) {
         const variant = existing.variants.find((entry) => entry.id === variantIds[index]);
