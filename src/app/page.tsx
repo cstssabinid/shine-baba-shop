@@ -104,7 +104,6 @@ export default function HomePage() {
           <div className="product-grid">
             {featured.map((product) => <ProductCard key={product.slug} product={product} />)}
           </div>
-          <div className="sample-disclaimer">{t("Stock is shown from the live catalog. Prices remain random placeholders until the shop confirms them.")}</div>
         </div>
       </section>
 
