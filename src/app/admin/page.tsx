@@ -6,7 +6,7 @@ import { categories as catalogCategories, products as catalogProducts } from "@/
 import { prisma } from "@/lib/prisma";
 import { getUsdToRwfRate } from "@/lib/exchange-rate";
 import { managerLogout } from "@/app/admin/auth-actions";
-import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, saveProduct, updateOrderStatus } from "@/app/admin/actions";
+import { addVariant, archiveProduct, confirmManualPayment, deactivateVariant, deleteProduct, saveProduct, updateOrderStatus } from "@/app/admin/actions";
 import { AdminImageUpload } from "@/components/admin-image-upload";
 import { AdminManagerLogin } from "@/components/admin-manager-login";
 
@@ -16,6 +16,8 @@ const messages: Record<string, string> = {
   "product-added": "Product added to the catalog.",
   "product-saved": "Product details and inventory saved.",
   "product-archived": "Product archived. Its order history is preserved.",
+  "product-deleted": "Product deleted from the catalog.",
+  "product-archived-orders": "This product has order history, so it was archived to preserve those records.",
   "variant-added": "Variant added.",
   "variant-removed": "Variant removed from the storefront.",
   "order-updated": "Order status updated.",
@@ -30,6 +32,7 @@ const errors: Record<string, string> = {
   "variant-fields": "Check the variant name, price, and stock quantity.",
   "variant-not-found": "That variant could not be found.",
   "product-not-found": "That product could not be found.",
+  "delete-product": "The product could not be deleted. It may be referenced by an order or another record.",
   "order-status": "Choose a valid order status.",
   "order-update": "The order could not be updated. Paid orders need a refund before cancellation.",
 };
@@ -96,11 +99,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="manager-section">
-        <div className="manager-section-heading"><div><p className="eyebrow">{products.length} records</p><h2>Products & <em>inventory.</em></h2></div></div>
+        <div className="manager-section-heading"><div><p className="eyebrow">{products.length} records</p><h2>Manage products & <em>inventory.</em></h2><p>Open a product to edit its details, pricing, image, and stock. Products with order history are archived when you delete them.</p></div></div>
         <div className="manager-product-list">
           {products.map((product) => (
             <details className="manager-product" key={product.id}>
-              <summary><span><strong>{product.name}</strong><small>{getProductCategoryValue(product.slug, product.category?.name ?? null)} · {product.slug}</small></span><span className={`manager-status ${product.status.toLowerCase()}`}>{product.status}</span><span className="manager-summary-stock">{product.variants.map((variant) => variant.stockQuantity === null ? "Not counted" : `${variant.label}: ${variant.stockQuantity}`).join(" · ") || "No active variants"}</span></summary>
+              <summary><span><strong>{product.name}</strong><small>{getProductCategoryValue(product.slug, product.category?.name ?? null)} · {product.slug}</small></span><span className={`manager-status ${product.status.toLowerCase()}`}>{product.status}</span><span className="manager-summary-stock">{product.variants.map((variant) => variant.stockQuantity === null ? "Not counted" : `${variant.label}: ${variant.stockQuantity}`).join(" · ") || "No active variants"}</span><span className="manager-edit-prompt">Edit product <span aria-hidden="true">⌄</span></span></summary>
               <form action={saveProduct} className="manager-form manager-product-form manager-edit-form">
                 <input type="hidden" name="productId" value={product.id} />
                 <label>Product name<input name="name" required defaultValue={product.name} maxLength={120} /></label>
@@ -122,6 +125,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               </form>
               <div className="manager-inline-actions">
                 <form action={archiveProduct}><input type="hidden" name="productId" value={product.id} /><button className="text-button" type="submit">Archive product</button></form>
+                <details className="manager-delete-confirm"><summary>Delete product</summary><form action={deleteProduct}><input type="hidden" name="productId" value={product.id} /><p>Products without orders are permanently removed, including their stock movement history. Products with orders are archived to protect order records.</p><label><input type="checkbox" required /> I understand, delete this product</label><button className="manager-delete-button" type="submit">Confirm delete</button></form></details>
                 {product.variants.some((variant) => variant.isActive) && <form action={deactivateVariant} className="manager-variant-remove"><label>Remove variant<select name="variantId" required defaultValue="">{product.variants.filter((variant) => variant.isActive).map((variant) => <option key={variant.id} value={variant.id}>{variant.label}</option>)}</select></label><button className="text-button" type="submit">Remove</button></form>}
                 <form action={addVariant} className="manager-variant-add"><input type="hidden" name="productId" value={product.id} /><label>Add variant<input name="label" required placeholder="Variant name" maxLength={100} /></label><label>RWF price<input name="price" type="number" min="1" step="1" required placeholder="40000" /></label><label>Stock<input name="stock" type="number" min="0" step="1" placeholder="Not counted" /></label><button className="text-button" type="submit">Add variant</button></form>
               </div>

@@ -156,6 +156,36 @@ export async function archiveProduct(formData: FormData) {
   redirect("/admin?notice=product-archived");
 }
 
+export async function deleteProduct(formData: FormData) {
+  await requireManager();
+  const id = String(formData.get("productId") ?? "");
+  if (!id) redirect("/admin?error=product-not-found");
+
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.product.findUnique({ where: { id }, select: { slug: true } });
+    if (!existing) return null;
+
+    const orderItemCount = await tx.orderItem.count({ where: { productId: id } });
+    if (orderItemCount > 0) {
+      await tx.product.update({ where: { id }, data: { status: "ARCHIVED" } });
+      return { slug: existing.slug, archived: true };
+    }
+
+    const variants = await tx.productVariant.findMany({ where: { productId: id }, select: { id: true } });
+    if (variants.length > 0) {
+      await tx.inventoryMovement.deleteMany({ where: { variantId: { in: variants.map((variant) => variant.id) } } });
+    }
+    await tx.product.delete({ where: { id } });
+    return { slug: existing.slug, archived: false };
+  }).catch(() => "failed" as const);
+
+  if (result === "failed") redirect("/admin?error=delete-product");
+  if (!result) redirect("/admin?error=product-not-found");
+
+  refreshCatalog(result.slug);
+  redirect(`/admin?notice=${result.archived ? "product-archived-orders" : "product-deleted"}`);
+}
+
 export async function addVariant(formData: FormData) {
   await requireManager();
   const { usdToRwf } = await getUsdToRwfRate();
